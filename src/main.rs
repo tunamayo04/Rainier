@@ -1,5 +1,6 @@
 mod cpu;
 mod mmu;
+mod test;
 
 use anyhow::Result;
 use std::path::Path;
