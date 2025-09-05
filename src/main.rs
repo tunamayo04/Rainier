@@ -1,5 +1,6 @@
 mod cpu;
 mod mmu;
+mod bit_utils;
 
 use std::cell::RefCell;
 use anyhow::Result;

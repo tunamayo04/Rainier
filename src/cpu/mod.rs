@@ -39,7 +39,7 @@ impl Cpu {
 
         let instruction = self.instruction_set.fetch_instruction(opcode);
 
-        println!("PC: {:#x} -> {}", self.registers.pc() - 1, instruction);
+        println!("PC: {:#X}, SP: {:#X} -> {}", self.registers.pc() - 1, self.registers.sp(), instruction);
 
         match instruction.operation {
             Operation::None => {

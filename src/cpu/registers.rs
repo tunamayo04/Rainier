@@ -133,6 +133,8 @@ impl Registers {
     // --- SP and PC ---
     pub fn sp(&self) -> u16 { self.sp }
     pub fn set_sp(&mut self, val: u16) { self.sp = val }
+    pub fn increment_sp(&mut self) { self.sp += 1 }
+    pub fn decrement_sp(&mut self) { self.sp -= 1 }
 
     pub fn pc(&self) -> u16 { self.pc }
     pub fn set_pc(&mut self, val: u16) { self.pc = val }
