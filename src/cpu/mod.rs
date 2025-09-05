@@ -11,7 +11,7 @@ mod interrupts;
 
 pub struct Cpu {
     mmu: Rc<RefCell<Mmu>>,
-    registers: Registers,
+    pub registers: Registers,
     interrupts: Interrupts,
 }
 

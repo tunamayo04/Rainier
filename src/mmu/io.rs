@@ -114,7 +114,9 @@ impl Mmu {
     pub fn scx(&self) -> u8 { self.read_byte(0xFF43).unwrap() }
     pub fn set_scx(&mut self, val: u8) { self.write_byte(0xFF43, val).unwrap() }
 
+
     pub fn ly(&self) -> u8 { self.read_byte(0xFF44).unwrap() }
+    pub fn set_ly(&mut self, val: u8) { self.write_byte(0xFF44, val).unwrap() }
 
     pub fn lyc(&self) -> u8 { self.read_byte(0xFF45).unwrap() }
     pub fn set_lyc(&mut self, val: u8) { self.write_byte(0xFF45, val).unwrap() }
