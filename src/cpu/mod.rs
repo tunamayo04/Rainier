@@ -29,33 +29,54 @@ impl Cpu {
     }
 
     pub fn emulation_loop(&mut self) -> Result<()> {
-        self.run_next_opcode()?;
-        self.run_next_opcode()
+        loop {
+            self.run_next_opcode()?;
+        }
     }
 
     pub fn run_next_opcode(&mut self) -> Result<()> {
-        let opcode = self.mmu.borrow().read_byte(self.registers.pc() as usize)?;
+        let opcode = self.read_at_program_counter()?;
+
         let instruction = self.instruction_set.fetch_instruction(opcode);
 
-        self.registers.increment_pc();
+        println!("PC: {:#x} -> {}", self.registers.pc() - 1, instruction);
 
-        println!("PC: {:#x} -> {}",self.registers.pc() ,instruction);
-
-        match &instruction.operation {
+        match instruction.operation {
             Operation::None => {
                 if instruction.name == "" {
                     panic!("Unimplemented opcode {:#x}", opcode);
                 }
             }
-            Operation::Nullary(op) => {
+            Operation::Nullary(operation) => {
                 assert_eq!(instruction.length, 1);
 
-                op(&mut self.mmu.borrow_mut(), &mut self.registers);
+                operation(&mut self.mmu.borrow_mut(), &mut self.registers);
             }
-            Operation::Unary(_) => {}
-            Operation::Binary(_) => {}
+            Operation::Unary(operation) => {
+                assert_eq!(instruction.length, 2);
+
+                let operand = self.read_at_program_counter()?;
+
+                operation(&mut self.mmu.borrow_mut(), &mut self.registers, operand);
+            }
+            Operation::Binary(operation) => {
+                assert_eq!(instruction.length, 3);
+
+                let first_operand = self.read_at_program_counter()?;
+                let second_operand = self.read_at_program_counter()?;
+
+                operation(&mut self.mmu.borrow_mut(), &mut self.registers, first_operand, second_operand);
+            }
         }
 
         Ok(())
+    }
+
+    // Reads the value in memory pointed at by PC and increments PC
+    fn read_at_program_counter(&mut self) -> Result<u8> {
+        let value = self.mmu.borrow().read_byte(self.registers.pc() as usize)?;
+        self.registers.increment_pc();
+
+        Ok(value)
     }
 }

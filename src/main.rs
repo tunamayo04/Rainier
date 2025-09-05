@@ -6,6 +6,7 @@ use anyhow::Result;
 use std::path::Path;
 use std::rc::Rc;
 use cpu::*;
+use log::debug;
 use mmu::*;
 
 struct Rainier {

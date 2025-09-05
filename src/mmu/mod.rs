@@ -125,15 +125,6 @@ impl Mmu {
         }
     }
 
-    fn load_rom(path: &path::Path) -> Result<[u8; ROM_BANK_SIZE]> {
-        let data: Vec<u8> = fs::read(path).context("Failed to read ROM")?;
-
-        println!("{}", data.len());
-
-        data.try_into()
-            .map_err(|v: Vec<u8>| anyhow::anyhow!("Expected ROM size 0x8000, got {:#x}", v.len()))
-    }
-
     pub fn read_byte(&self, address: usize) -> Result<u8> {
         Ok(match MemoryRegion::from_address(address)? {
             RomBankZero => {
