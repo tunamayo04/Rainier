@@ -97,7 +97,7 @@ impl Registers {
     pub fn flip_flag(&mut self, flag: Flag) {
         self.f ^= flag as u8;
     }
-    pub fn clear_all_flags(&mut self, flag: Flag) {
+    pub fn clear_all_flags(&mut self) {
         self.f = 0;
     }
 

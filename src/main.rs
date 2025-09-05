@@ -1,21 +1,22 @@
 mod cpu;
 mod mmu;
-mod test;
 
+use std::cell::RefCell;
 use anyhow::Result;
 use std::path::Path;
+use std::rc::Rc;
 use cpu::*;
 use mmu::*;
 
 struct Rainier {
+    mmu: Rc<RefCell<Mmu>>,
     cpu: Cpu,
-    mmu: Mmu,
 }
 
 impl Rainier {
     pub fn new() -> Result<Self> {
-        let cpu = Cpu::new();
-        let mmu = Mmu::new(Path::new("roms/tetris.gb"))?;
+        let mmu = Rc::new(RefCell::new(Mmu::new(Path::new("roms/tetris.gb"))?));
+        let cpu = Cpu::new(mmu.clone());
 
         Ok(Rainier { cpu, mmu })
     }

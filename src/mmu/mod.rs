@@ -14,6 +14,8 @@ FF00	FF7F	I/O Registers
 FF80	FFFE	High RAM (HRAM)
 FFFF	FFFF	Interrupt Enable register (IE)
 */
+mod io;
+
 use std::{fs, path};
 use anyhow::{Context, Result};
 use crate::mmu::MemoryRegion::{EchoRam, ExternalRam, HighRam, InterruptEnableRegister, RomBank, SpriteAttributionTable, VideoRam, WorkRam, IO};
@@ -51,7 +53,7 @@ impl MemoryRegion {
             0xFF00..=0xFF7F => Ok(IO),
             0xFF80..=0xFFFE => Ok(HighRam),
             0xFFFF => Ok(InterruptEnableRegister),
-            _ => Err(()).context("Illegal address")
+            _ => Err(anyhow::anyhow!("Illegall address"))
         }
     }
 }
@@ -85,7 +87,7 @@ impl Mmu {
             io: [0; IO_SIZE],
             high_ram: [0; HIGH_RAM_SIZE],
 
-            interrupt_enable_register: false
+            interrupt_enable_register: 0
         })
     }
 
