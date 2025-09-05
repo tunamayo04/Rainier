@@ -1,3 +1,8 @@
+#[derive(Debug, Copy, Clone)]
+pub enum Register {
+    A, B, C, D, E, H, L, AF, BC, DE, HL, SP, PC,
+}
+
 #[derive(Debug, Default)]
 pub struct Registers {
     a: u8,
@@ -23,6 +28,56 @@ pub enum Flag {
 impl Registers {
     pub fn new() -> Self {
         Registers::default()
+    }
+
+    pub fn get_8bit_register(&self, register: Register) -> u8 {
+        match register {
+            Register::A => self.a(),
+            Register::B => self.b(),
+            Register::C => self.c(),
+            Register::D => self.d(),
+            Register::E => self.e(),
+            Register::H => self.h(),
+            Register::L => self.l(),
+            _ => panic!("Not an 8-bit register"),
+        }
+    }
+
+    pub fn set_8bit_register(&mut self, register: Register, value: u8) {
+        match register {
+            Register::A => self.set_a(value),
+            Register::B => self.set_b(value),
+            Register::C => self.set_c(value),
+            Register::D => self.set_d(value),
+            Register::E => self.set_e(value),
+            Register::H => self.set_h(value),
+            Register::L => self.set_l(value),
+            _ => panic!("Not an 8-bit register"),
+        }
+    }
+
+    pub fn get_16bit_register(&self, register: Register) -> u16 {
+        match register {
+            Register::AF => self.af(),
+            Register::BC => self.bc(),
+            Register::DE => self.de(),
+            Register::HL => self.hl(),
+            Register::SP => self.sp(),
+            Register::PC => self.pc(),
+            _ => panic!("Not a 16-bit register"),
+        }
+    }
+
+    pub fn set_16bit_register(&mut self, register: Register, value: u16) {
+        match register {
+            Register::AF => self.set_af(value),
+            Register::BC => self.set_bc(value),
+            Register::DE => self.set_de(value),
+            Register::HL => self.set_hl(value),
+            Register::SP => self.set_sp(value),
+            Register::PC => self.set_pc(value),
+            _ => panic!("Not an 16-bit register"),
+        }
     }
 
     // --- 8-bit register getters/setters ---
@@ -81,6 +136,7 @@ impl Registers {
 
     pub fn pc(&self) -> u16 { self.pc }
     pub fn set_pc(&mut self, val: u16) { self.pc = val }
+    pub fn increment_pc(&mut self) { self.pc += 1 }
 
     // --- Flag getters/setters ---
     pub fn get_flag(&self, flag: Flag) -> bool { (self.f & flag as u8) != 0 }
