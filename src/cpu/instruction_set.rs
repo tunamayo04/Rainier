@@ -408,11 +408,29 @@ impl InstructionSet {
         instructions[0xBF] = Instruction{ name: "CP A", opcode: 0xBF, length: 1, cycles: 1,
             operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::cp(registers, registers.a(), registers.a()) })) };
 
+        instructions[0xC6] = Instruction{ name: "ADD A, d8", opcode: 0xC6, length: 2, cycles: 2,
+            operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::add(registers, registers.a(), value) })) };
         instructions[0xCD] = Instruction{ name: "CALL a16", opcode: 0xCD, length: 3, cycles: 6,
             operation: Operation::Binary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers, lower_byte: u8, higher_byte: u8| { Self::call(mmu, registers, lower_byte, higher_byte) })) };
+        instructions[0xCE] = Instruction{ name: "ADC A, d8", opcode: 0xCE, length: 2, cycles: 2,
+            operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::adc(registers, registers.a(), value) })) };
+
+        instructions[0xD6] = Instruction{ name: "SUB A, d8", opcode: 0xD6, length: 2, cycles: 2,
+            operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::sub(registers, registers.a(), value) })) };
+        instructions[0xDE] = Instruction{ name: "SBC A, d8", opcode: 0xDE, length: 2, cycles: 2,
+            operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::sbc(registers, registers.a(), value) })) };
+
+        instructions[0xE6] = Instruction{ name: "AND A, d8", opcode: 0xE6, length: 2, cycles: 2,
+            operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::and(registers, registers.a(), value) })) };
+        instructions[0xEE] = Instruction{ name: "XOR A, d8", opcode: 0xE, length: 2, cycles: 2,
+            operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::xor(registers, registers.a(), value) })) };
 
         instructions[0xF3] = Instruction{ name: "DI", opcode: 0xF3, length: 1, cycles: 1,
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, _| { mmu.set_ime(0) })) };
+        instructions[0xF6] = Instruction{ name: "OR A, d8", opcode: 0xF6, length: 2, cycles: 2,
+            operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::or(registers, registers.a(), value) })) };
+        instructions[0xFE] = Instruction{ name: "CP d8", opcode: 0xF8, length: 2, cycles: 2,
+            operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::cp(registers, registers.a(), value) })) };
 
         InstructionSet { instructions, mmu }
     }

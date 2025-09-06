@@ -6,3 +6,6 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.99"
 log = "0.4.28"
+
+[profile.dev]
+overflow-checks = false
