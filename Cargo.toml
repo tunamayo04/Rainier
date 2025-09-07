@@ -5,7 +5,9 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.99"
-log = "0.4.28"
+color-eyre = "0.6.5"
+crossterm = "0.29.0"
+ratatui = "0.29.0"
 
 [profile.dev]
 overflow-checks = false

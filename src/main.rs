@@ -1,14 +1,20 @@
 mod cpu;
 mod mmu;
 mod bit_utils;
+mod ui;
 
 use std::cell::RefCell;
 use anyhow::Result;
 use std::path::Path;
 use std::rc::Rc;
 use cpu::*;
-use log::debug;
 use mmu::*;
+use crate::ui::{Action, App};
+
+enum EmulationMode {
+    Debug(u32),
+    Normal,
+}
 
 struct Rainier {
     mmu: Rc<RefCell<Mmu>>,
@@ -36,6 +42,9 @@ impl Rainier {
         registers.set_pc(0x0100);
         registers.set_sp(0xfffe);
         registers.clear_all_flags();
+        registers.set_zero_flag(true);
+        registers.set_half_carry_flag(true);
+        registers.set_carry_flag(true);
 
         {
             let mut mmu = self.mmu.borrow_mut();
@@ -80,17 +89,28 @@ impl Rainier {
             mmu.set_wx(0x00);
             mmu.set_ie(0x00);
 
-            mmu.load_cartridge(Path::new("roms/tetris.gb"))?;
+            mmu.load_cartridge(Path::new("roms/tetris.gb"))
         }
-
-        self.cpu.emulation_loop()
     }
-
 }
 
 fn main() -> Result<()> {
-    let mut rainier = Rainier::new()?;
-    rainier.boot()?;
+    let rainier = Rc::new(RefCell::new(Rainier::new()?));
+    rainier.borrow_mut().boot()?;
+
+    let mut terminal = ratatui::init();
+    let mut debugger = App::new(rainier.clone());
+
+    while !debugger.exit {
+        debugger.run(&mut terminal)?;
+
+        if debugger.requested_action == Some(Action::Trace) {
+            rainier.borrow_mut().cpu.emulation_loop(EmulationMode::Debug(1))?;
+            debugger.requested_action = None;
+        }
+    }
+
+    ratatui::restore();
 
     Ok(())
 }

@@ -18,6 +18,7 @@ mod io;
 
 use std::{fs, path};
 use anyhow::{Context, Result};
+use crate::cpu::instruction_set::DebugInstruction;
 use crate::mmu::MemoryRegion::*;
 
 const MEMORY_BANK_SIZE: usize = 0xFFFF;

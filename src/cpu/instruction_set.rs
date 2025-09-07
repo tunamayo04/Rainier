@@ -28,13 +28,17 @@ pub struct Instruction {
     pub operation: Operation,
 }
 
+pub struct DebugInstruction {
+    pub address: usize,
+    pub opcode: u8,
+    pub first_operand: Option<u8>,
+    pub second_operand: Option<u8>,
+    pub name: String,
+}
+
 impl fmt::Display for Instruction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{} (opcode: 0x{:02X}, length: {}, cycles: {})",
-            self.name, self.opcode, self.length, self.cycles
-        )
+        write!(f, "0x{:02X} {}", self.opcode, self.name)
     }
 }
 
@@ -69,6 +73,8 @@ impl InstructionSet {
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::ld_8bit(registers, Register::B, value) })) } ;
         instructions[0x0A] = Instruction{ name: "LD A, (BC)", opcode: 0x0A, length: 1, cycles: 2,
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::ld_8bit(registers, Register::A, mmu.read_byte(registers.bc() as usize).unwrap()) })) };
+        instructions[0x0B] = Instruction{ name: "DEC BC", opcode: 0x0B, length: 1, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::dec_16bit(registers, Register::BC) })) };
         instructions[0x0C] = Instruction{ name: "INC C", opcode: 0x0C, length: 1, cycles: 1,
             operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::inc_8bit(registers, Register::C) })) };
         instructions[0x0D] = Instruction{ name: "DEC C", opcode: 0x0D, length: 1, cycles: 1,
@@ -90,6 +96,8 @@ impl InstructionSet {
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::ld_8bit(registers, Register::D, value) })) } ;
         instructions[0x1A] = Instruction{ name: "LD A, (DE)", opcode: 0x1A, length: 1, cycles: 2,
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::ld_8bit(registers, Register::A, mmu.read_byte(registers.de() as usize).unwrap()) })) };
+        instructions[0x1B] = Instruction{ name: "DEC DE", opcode: 0x1B, length: 1, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::dec_16bit(registers, Register::DE) })) };
         instructions[0x1C] = Instruction{ name: "INC E", opcode: 0x1C, length: 1, cycles: 1,
             operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::inc_8bit(registers, Register::E) })) };
         instructions[0x1D] = Instruction{ name: "DEC E", opcode: 0x1D, length: 1, cycles: 1,
@@ -97,6 +105,8 @@ impl InstructionSet {
         instructions[0x1E] = Instruction{ name: "LD E, d8", opcode: 0x1E, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::ld_8bit(registers, Register::E, value) })) } ;
 
+        instructions[0x20] = Instruction{ name: "JR NZ, s8", opcode: 0x20, length: 2, cycles: 3, // TODO: Check the variable cycles implementation
+            operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, steps: u8| { if registers.zero_flag() == false { Self::jr(registers, steps) } })) };
         instructions[0x21] = Instruction{ name: "LD HL, d16", opcode: 0x21, length: 3, cycles: 3,
             operation: Operation::Binary(Rc::new(|_, registers: &mut Registers, lower_byte: u8, higher_byte: u8| { Self::ld_16bit(registers, Register::HL, lower_byte, higher_byte) })) };
         instructions[0x22] = Instruction{ name: "LD (HL+), A", opcode: 0x22, length: 1, cycles: 2,
@@ -115,6 +125,8 @@ impl InstructionSet {
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| {
                 Self::ld_8bit(registers, Register::A, mmu.read_byte(registers.hl() as usize).unwrap());
                 registers.set_hl(registers.hl() + 1)})) };
+        instructions[0x3B] = Instruction{ name: "DEC HL", opcode: 0x3B, length: 1, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::dec_16bit(registers, Register::HL) })) };
         instructions[0x2C] = Instruction{ name: "INC L", opcode: 0x2C, length: 1, cycles: 1,
             operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::inc_8bit(registers, Register::L) })) };
         instructions[0x2D] = Instruction{ name: "DEC L", opcode: 0x2D, length: 1, cycles: 1,
@@ -122,6 +134,8 @@ impl InstructionSet {
         instructions[0x2E] = Instruction{ name: "LD L, d8", opcode: 0x2E, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::ld_8bit(registers, Register::L, value) })) } ;
 
+        instructions[0x30] = Instruction{ name: "JR NC, s8", opcode: 0x30, length: 2, cycles: 3, // TODO: Check the variable cycles implementation
+            operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, steps: u8| { if registers.carry_flag() == false { Self::jr(registers, steps) } })) };
         instructions[0x31] = Instruction{ name: "LD SP, d16", opcode: 0x31, length: 3, cycles: 3,
             operation: Operation::Binary(Rc::new(|_, registers: &mut Registers, lower_byte: u8, higher_byte: u8| { Self::ld_16bit(registers, Register::SP, lower_byte, higher_byte) })) };
         instructions[0x32] = Instruction{ name: "LD (HL-), A", opcode: 0x32, length: 1, cycles: 2,
@@ -136,6 +150,8 @@ impl InstructionSet {
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| {
                 Self::ld_8bit(registers, Register::A, mmu.read_byte(registers.hl() as usize).unwrap());
                 registers.set_hl(registers.hl() - 1)})) };
+        instructions[0x3B] = Instruction{ name: "DEC SP", opcode: 0x3B, length: 1, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::dec_16bit(registers, Register::SP) })) };
         instructions[0x3C] = Instruction{ name: "INC A", opcode: 0x3C, length: 1, cycles: 1,
             operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::inc_8bit(registers, Register::A) })) };
         instructions[0x3D] = Instruction{ name: "DEC A", opcode: 0x3D, length: 1, cycles: 1,
@@ -408,6 +424,10 @@ impl InstructionSet {
         instructions[0xBF] = Instruction{ name: "CP A", opcode: 0xBF, length: 1, cycles: 1,
             operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::cp(registers, registers.a(), registers.a()) })) };
 
+        instructions[0xC1] = Instruction{ name: "POP BC", opcode: 0xC1, length: 1, cycles: 3,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::pop(mmu, registers, Register::BC) })) };
+        instructions[0xC5] = Instruction{ name: "PUSH BC", opcode: 0xC5, length: 1, cycles: 4,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::push(mmu, registers, registers.bc()) })) };
         instructions[0xC6] = Instruction{ name: "ADD A, d8", opcode: 0xC6, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::add(registers, registers.a(), value) })) };
         instructions[0xCD] = Instruction{ name: "CALL a16", opcode: 0xCD, length: 3, cycles: 6,
@@ -415,18 +435,30 @@ impl InstructionSet {
         instructions[0xCE] = Instruction{ name: "ADC A, d8", opcode: 0xCE, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::adc(registers, registers.a(), value) })) };
 
+        instructions[0xD1] = Instruction{ name: "POP DE", opcode: 0xD1, length: 1, cycles: 3,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::pop(mmu, registers, Register::DE) })) };
+        instructions[0xD5] = Instruction{ name: "PUSH DE", opcode: 0xD5, length: 1, cycles: 4,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::push(mmu, registers, registers.de()) })) };
         instructions[0xD6] = Instruction{ name: "SUB A, d8", opcode: 0xD6, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::sub(registers, registers.a(), value) })) };
         instructions[0xDE] = Instruction{ name: "SBC A, d8", opcode: 0xDE, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::sbc(registers, registers.a(), value) })) };
 
+        instructions[0xE1] = Instruction{ name: "POP HL", opcode: 0xE1, length: 1, cycles: 3,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::pop(mmu, registers, Register::HL) })) };
+        instructions[0xE5] = Instruction{ name: "PUSH HL", opcode: 0xE5, length: 1, cycles: 4,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::push(mmu, registers, registers.hl()) })) };
         instructions[0xE6] = Instruction{ name: "AND A, d8", opcode: 0xE6, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::and(registers, registers.a(), value) })) };
         instructions[0xEE] = Instruction{ name: "XOR A, d8", opcode: 0xE, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::xor(registers, registers.a(), value) })) };
 
+        instructions[0xF1] = Instruction{ name: "POP AF", opcode: 0xF1, length: 1, cycles: 3,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::pop(mmu, registers, Register::AF) })) };
         instructions[0xF3] = Instruction{ name: "DI", opcode: 0xF3, length: 1, cycles: 1,
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, _| { mmu.set_ime(0) })) };
+        instructions[0xF5] = Instruction{ name: "PUSH AF", opcode: 0xF5, length: 1, cycles: 4,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::push(mmu, registers, registers.af()) })) };
         instructions[0xF6] = Instruction{ name: "OR A, d8", opcode: 0xF6, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::or(registers, registers.a(), value) })) };
         instructions[0xFE] = Instruction{ name: "CP d8", opcode: 0xF8, length: 2, cycles: 2,
@@ -610,11 +642,40 @@ impl InstructionSet {
         let jump_address = concatenate_bytes(lower_byte, higher_byte);
         let (return_lower, return_higher) = split_2bytes(registers.pc());
 
+        registers.decrement_sp();
         mmu.write_byte(registers.sp() as usize, return_lower).unwrap();
         registers.decrement_sp();
         mmu.write_byte(registers.sp() as usize, return_higher).unwrap();
-        registers.decrement_sp();
 
         registers.set_pc(jump_address)
+    }
+
+    // Jump n steps from the current pc
+    // Flags: - - - -
+    fn jr(registers: &mut Registers, steps: u8) {
+        let current_pc = registers.pc();
+        registers.set_pc(current_pc + steps as u16);
+    }
+
+    // Push a value on the stack
+    // Flags: - - - -
+    fn push(mmu: &mut Mmu, registers: &mut Registers, value: u16) {
+        let (value_lower, value_higher) = split_2bytes(value);
+
+        registers.decrement_sp();
+        mmu.write_byte(registers.sp() as usize, value_lower).unwrap();
+        registers.decrement_sp();
+        mmu.write_byte(registers.sp() as usize, value_higher).unwrap();
+    }
+
+    // Pop a value from the stack and store it in the given register
+    // Flags: - - - -
+    fn pop(mmu: &mut Mmu, registers: &mut Registers, register: Register) {
+        let value_higher = mmu.read_byte(registers.sp() as usize).unwrap();
+        registers.increment_sp();
+        let value_lower = mmu.read_byte(registers.sp() as usize).unwrap();
+        registers.increment_sp();
+
+        registers.set_16bit_register(register, concatenate_bytes(value_lower, value_higher))
     }
 }
