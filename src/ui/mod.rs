@@ -1,14 +1,18 @@
 use std::{cell::RefCell, io, rc::Rc};
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+use std::io::stdout;
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, MouseEvent, MouseEventKind};
 use ratatui::{
     layout::{Layout, Constraint, Direction, Rect},
     text::Line,
     widgets::{Block, Borders, Paragraph},
     Frame, DefaultTerminal,
 };
+use ratatui::crossterm::event::EnableMouseCapture;
+use ratatui::crossterm::execute;
 use ratatui::prelude::{Color, Style};
 use ratatui::style::Modifier;
 use ratatui::text::Span;
+use crate::cpu::instruction_set::DebugInstruction;
 use crate::Rainier;
 
 #[derive(Eq, PartialEq)]
@@ -22,6 +26,10 @@ pub struct App {
     rainier: Rc<RefCell<Rainier>>,
     pub requested_action: Option<Action>,
     pub exit: bool,
+    current_instruction_set: Vec<DebugInstruction>,
+    current_instruction_id: usize,
+    scroll: i16,
+    backward_instructions_count: usize,
 }
 
 impl App {
@@ -30,10 +38,28 @@ impl App {
             rainier,
             requested_action: None,
             exit: false,
+            current_instruction_set: Vec::new(),
+            current_instruction_id: 0,
+            scroll: 0,
+            backward_instructions_count: 5
         }
     }
 
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
+        execute!(stdout(), EnableMouseCapture)?;
+
+        {
+            let rainier = self.rainier.borrow();
+
+            if self.current_instruction_set.is_empty() {
+                let rainier = self.rainier.borrow();
+                let instructions = rainier.cpu.dump_instructions(rainier.cpu.registers.pc() as usize);
+                self.current_instruction_set = instructions;
+            }
+
+            self.current_instruction_id = self.current_instruction_set.iter().position(|r| r.address == rainier.cpu.registers.pc() as usize).unwrap()
+        }
+
         terminal.draw(|frame| self.draw(frame))?;
         self.handle_events()?;
         Ok(())
@@ -46,9 +72,13 @@ impl App {
         let title = Line::from("Rainier debugger");
         let instructions = Line::from(vec![
             Span::styled(" Quit", Style::default()),
-            Span::styled(" <Q>", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::styled("<Q>", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
             Span::styled(" Trace", Style::default()),
-            Span::styled( " <F7>", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::styled( "<F1>", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::styled(" Step Over", Style::default()),
+            Span::styled( "<F2>", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::styled(" Run", Style::default()),
+            Span::styled( "<F3>", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
         ]);
         let outer_block = Block::default()
             .title(title.centered())
@@ -91,19 +121,16 @@ impl App {
     fn draw_placeholder(&self, frame: &mut Frame, area: Rect) {
         let rainier = self.rainier.borrow();
 
-        let backward_instructions_count = 0;
-        let forward_instructions_count = 25;
-
-        let instructions = rainier.cpu.get_instruction_range_from_address(rainier.cpu.registers.pc() as usize, backward_instructions_count, forward_instructions_count).unwrap();
-        let lines = instructions
+        let lines = self.current_instruction_set
             .iter()
+            .skip(self.current_instruction_id - self.backward_instructions_count - self.scroll as usize)
             .enumerate()
             .map(|(i, instruction)| {
-                let prefix = if i == backward_instructions_count as usize { "▶" } else { " " };
+                let prefix = if i == self.backward_instructions_count + self.scroll as usize { "▶" } else { " " };
                 let first_operand = instruction.first_operand.map_or(String::from("  "), |operand| format!("{:02X}", operand));
                 let second_operand = instruction.second_operand.map_or(String::from("  "), |operand| format!("{:02X}", operand));
 
-                Line::from(format!("{}  ROM0:{:04X} {:02X} {} {}        {}",
+                Line::from(format!(" {} ROM0:{:04X} {:02X} {} {}        {}",
                     prefix,
                     instruction.address,
                     instruction.opcode,
@@ -123,6 +150,9 @@ impl App {
         match event::read()? {
             Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
                 self.handle_key_event(key_event)
+            },
+            Event::Mouse(mouse_event) => {
+                self.handle_mouse_event(mouse_event);
             }
             _ => {}
         };
@@ -132,7 +162,26 @@ impl App {
     fn handle_key_event(&mut self, key_event: KeyEvent) {
         match key_event.code {
             KeyCode::Char('q') => self.exit = true,
-            KeyCode::F(7) => self.requested_action = Some(Action::Trace),
+            KeyCode::F(1) => {
+                self.requested_action = Some(Action::Trace);
+                self.scroll = 0;
+            },
+            _ => {}
+        }
+    }
+
+    fn handle_mouse_event(&mut self, mouse_event: MouseEvent) {
+        match mouse_event.kind {
+            // TODO: Bounds check
+            MouseEventKind::ScrollDown => {
+                self.scroll -= 1;
+            },
+            MouseEventKind::ScrollUp => {
+                //if (self.scroll as usize) < self.current_instruction_id - self.backward_instructions_count {
+                 //   self.scroll += 1;
+                //}
+                self.scroll += 1;
+            }
             _ => {}
         }
     }

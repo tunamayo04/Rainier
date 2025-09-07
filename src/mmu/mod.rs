@@ -29,7 +29,7 @@ const SPRITE_ATTRIBUTION_TABLE_SIZE: usize = 0x100;
 const IO_SIZE: usize = 0x80;
 const HIGH_RAM_SIZE: usize = 0x80;
 
-enum MemoryRegion {
+pub enum MemoryRegion {
     RomBankZero = 0x0000,
     RomBankSwap = 0x4000,
     VideoRam = 0x8000,
@@ -219,6 +219,21 @@ impl Mmu {
 
                 Ok(())
             }
+        }
+    }
+
+    pub fn dump_memory_region(&self, region: MemoryRegion) -> Vec<u8> {
+        match region {
+            RomBankZero => self.rom_bank_zero.to_vec(),
+            RomBankSwap => self.rom_bank_swap.to_vec(),
+            VideoRam => self.video_ram.to_vec(),
+            ExternalRam => self.external_ram.to_vec(),
+            WorkRam => self.work_ram.to_vec(),
+            EchoRam => self.echo_ram.to_vec(),
+            SpriteAttributionTable => self.sprite_attribution_table.to_vec(),
+            IO => self.io.to_vec(),
+            HighRam => self.high_ram.to_vec(),
+            InterruptEnableRegister => vec![self.interrupt_enable_register]
         }
     }
 }

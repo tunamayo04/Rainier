@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 use crate::cpu::registers::Registers;
-use crate::mmu::Mmu;
+use crate::mmu::{MemoryRegion, Mmu};
 
 use anyhow::Result;
 use crate::cpu::instruction_set::{DebugInstruction, InstructionSet, Operation};
@@ -88,18 +88,18 @@ impl Cpu {
         Ok(value)
     }
 
-    // Fetches a range of instructions, backwards and forwards from the pc
-    // Used for debugging
-    pub fn get_instruction_range_from_address(&self, address: usize, backward_count: u32, forward_count: u32) -> Result<Vec<DebugInstruction>> {
-        let mut pc = address;
+    // Get all the instructions in the ROM and the id of the instruction corresponding to a given PC
+    pub fn dump_instructions(&self, current_address: usize) -> Vec<DebugInstruction> {
+        let mut pc = 0;
         let mut instructions = vec![];
 
-        for i in 0..=forward_count {
-            let mmu = self.mmu.borrow();
+        let mmu = self.mmu.borrow();
+        let memory = mmu.dump_memory_region(MemoryRegion::RomBankZero);
 
+        while pc < memory.len() {
             let address = pc;
 
-            let opcode = mmu.read_byte(pc)?;
+            let opcode = *memory.get(address).unwrap();
             let instruction = self.instruction_set.fetch_instruction(opcode);
 
             pc += 1;
@@ -127,7 +127,7 @@ impl Cpu {
             let name = if instruction.name == "" { "Unimplemented instruction " } else { instruction.name };
 
             instructions.push(
-            DebugInstruction {
+                DebugInstruction {
                     address,
                     opcode,
                     first_operand,
@@ -137,6 +137,6 @@ impl Cpu {
             )
         }
 
-        Ok(instructions)
+        instructions
     }
 }
