@@ -54,13 +54,9 @@ impl Cpu {
                 if instruction.name == "" {
                     panic!("Unimplemented opcode {:#x}", opcode);
                 }
-
-                //println!("PC: 0x{:X}, SP: 0x{:X}, Z: {} -> NOP", self.registers.pc() - 1, self.registers.sp(), self.registers.zero_flag());
             }
             Operation::Nullary(ref operation) => {
                 assert_eq!(instruction.length, 1);
-
-                //println!("PC: 0x{:X}, SP: 0x{:X}, Z: {} -> {}", self.registers.pc() - 1, self.registers.sp(), self.registers.zero_flag(), instruction);
 
                 operation(&mut self.mmu.borrow_mut(), &mut self.registers);
             }
@@ -69,8 +65,6 @@ impl Cpu {
 
                 let operand = self.read_at_program_counter()?;
 
-                //println!("PC: 0x{:X}, SP: 0x{:X}, Z: {} -> {} ({:02X})", self.registers.pc() - 2, self.registers.sp(), self.registers.zero_flag(), instruction, operand);
-
                 operation(&mut self.mmu.borrow_mut(), &mut self.registers, operand);
             }
             Operation::Binary(ref operation) => {
@@ -78,8 +72,6 @@ impl Cpu {
 
                 let first_operand = self.read_at_program_counter()?;
                 let second_operand = self.read_at_program_counter()?;
-
-                //println!("PC: 0x{:X}, SP: 0x{:X}, Z: {} -> {} (0x{:02X} 0x{:02X})", self.registers.pc() - 3, self.registers.sp(), self.registers.zero_flag(), instruction, first_operand, second_operand);
 
                 operation(&mut self.mmu.borrow_mut(), &mut self.registers, first_operand, second_operand);
             }

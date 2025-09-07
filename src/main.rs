@@ -1,9 +1,12 @@
+#![allow(dead_code, unused_variables)]
+
 mod cpu;
 mod mmu;
 mod bit_utils;
 mod ui;
 
 use std::cell::RefCell;
+use std::env;
 use anyhow::Result;
 use std::path::Path;
 use std::rc::Rc;
@@ -11,6 +14,7 @@ use cpu::*;
 use mmu::*;
 use crate::ui::{Action, App};
 
+#[derive(PartialOrd, PartialEq, Copy, Clone)]
 enum EmulationMode {
     Debug(u32),
     Normal,
@@ -33,12 +37,12 @@ impl Rainier {
     pub fn boot(&mut self) -> Result<()> {
         let registers = &mut self.cpu.registers;
         registers.set_a(0x01);
-        registers.set_b(0xff);
+        registers.set_b(0x00);
         registers.set_c(0x13);
         registers.set_d(0x00);
-        registers.set_e(0xc1);
-        registers.set_h(0x84);
-        registers.set_l(0x03);
+        registers.set_e(0xd8);
+        registers.set_h(0x01);
+        registers.set_l(0x4d);
         registers.set_pc(0x0100);
         registers.set_sp(0xfffe);
         registers.clear_all_flags();
@@ -101,12 +105,24 @@ fn main() -> Result<()> {
     let mut terminal = ratatui::init();
     let mut debugger = App::new(rainier.clone());
 
-    while !debugger.exit {
-        debugger.run(&mut terminal)?;
+    let emulation_mode = match env::var("mode").unwrap_or(String::from("debug")).as_str() {
+        "normal" => EmulationMode::Normal,
+        _ => EmulationMode::Debug(1),
+    };
 
-        if debugger.requested_action == Some(Action::Trace) {
-            rainier.borrow_mut().cpu.emulation_loop(EmulationMode::Debug(1))?;
-            debugger.requested_action = None;
+    if emulation_mode == EmulationMode::Normal {
+        loop {
+            rainier.borrow_mut().cpu.emulation_loop(emulation_mode)?
+        }
+    }
+    else {
+        while !debugger.exit {
+            debugger.run(&mut terminal)?;
+
+            if debugger.requested_action == Some(Action::Trace) {
+                rainier.borrow_mut().cpu.emulation_loop(emulation_mode)?;
+                debugger.requested_action = None;
+            }
         }
     }
 

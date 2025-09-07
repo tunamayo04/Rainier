@@ -1,7 +1,5 @@
 use std::{cell::RefCell, io, rc::Rc};
-use color_eyre::owo_colors::OwoColorize;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
-use crossterm::style::Attribute::Bold;
 use ratatui::{
     layout::{Layout, Constraint, Direction, Rect},
     text::Line,
@@ -10,7 +8,7 @@ use ratatui::{
 };
 use ratatui::prelude::{Color, Style};
 use ratatui::style::Modifier;
-use ratatui::text::{Span, Text};
+use ratatui::text::Span;
 use crate::Rainier;
 
 #[derive(Eq, PartialEq)]
@@ -42,7 +40,7 @@ impl App {
     }
 
     fn draw(&self, frame: &mut Frame) {
-        let outer_area = frame.size();
+        let outer_area = frame.area();
 
         // Outer block
         let title = Line::from("Rainier debugger");

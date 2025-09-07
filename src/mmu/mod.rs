@@ -18,7 +18,6 @@ mod io;
 
 use std::{fs, path};
 use anyhow::{Context, Result};
-use crate::cpu::instruction_set::DebugInstruction;
 use crate::mmu::MemoryRegion::*;
 
 const MEMORY_BANK_SIZE: usize = 0xFFFF;
@@ -81,14 +80,15 @@ pub struct Mmu {
 
 impl Mmu {
     pub fn new() -> Result<Self> {
+        let work_ram: [u8; WORK_RAM_SIZE] = rand::random();
         Ok(Self {
             rom_bank_zero: [0; ROM_BANK_SIZE],
             rom_bank_swap: [0; ROM_BANK_SIZE],
 
             video_ram: [0; VIDEO_RAM_SIZE],
-            external_ram: [0; EXTERNAL_RAM_SIZE],
-            work_ram: [0; WORK_RAM_SIZE],
-            echo_ram: [0; WORK_RAM_SIZE],
+            external_ram: [0xFF; EXTERNAL_RAM_SIZE],
+            work_ram,
+            echo_ram: work_ram,
 
             sprite_attribution_table: [0; SPRITE_ATTRIBUTION_TABLE_SIZE],
             io: [0; IO_SIZE],

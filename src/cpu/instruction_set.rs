@@ -653,8 +653,10 @@ impl InstructionSet {
     // Jump n steps from the current pc
     // Flags: - - - -
     fn jr(registers: &mut Registers, steps: u8) {
-        let current_pc = registers.pc();
-        registers.set_pc(current_pc + steps as u16);
+        let current_pc = registers.pc() as i16;
+        let steps = (steps as i8) as i16; // Steps is signed... source of a nasty bug
+
+        registers.set_pc((current_pc + steps) as u16);
     }
 
     // Push a value on the stack
