@@ -45,31 +45,40 @@ impl Cpu {
     }
 
     pub fn run_next_opcode(&mut self) -> Result<()> {
-        let opcode = self.read_at_program_counter()?;
+        let mut opcode = self.read_at_program_counter()?;
+        let mut instruction = self.instruction_set.fetch_instruction(opcode);
 
-        let instruction = self.instruction_set.fetch_instruction(opcode);
+        // 16-bit opcodes
+        let is_16bit_opcode = if opcode == 0xCB {
+            print!("de");
+            opcode = self.read_at_program_counter()?;
+            instruction = self.instruction_set.fetch_instruction_16bit(opcode);
+
+            true
+        } else {
+           false
+        };
 
         match instruction.operation {
             Operation::None => {
                 if instruction.name == "" {
-                    panic!("Unimplemented opcode {:#x}", opcode);
+                    if is_16bit_opcode {
+                        panic!("Unimplemented opcode 0xCB{:X} at {:#X}", opcode, self.registers.pc() - 1);
+                    }
+                    else {
+                        panic!("Unimplemented opcode {:#X} at {:#X}", opcode, self.registers.pc());
+                    }
                 }
             }
             Operation::Nullary(ref operation) => {
-                assert_eq!(instruction.length, 1);
-
                 operation(&mut self.mmu.borrow_mut(), &mut self.registers);
             }
             Operation::Unary(ref operation) => {
-                assert_eq!(instruction.length, 2);
-
                 let operand = self.read_at_program_counter()?;
 
                 operation(&mut self.mmu.borrow_mut(), &mut self.registers, operand);
             }
             Operation::Binary(ref operation) => {
-                assert_eq!(instruction.length, 3);
-
                 let first_operand = self.read_at_program_counter()?;
                 let second_operand = self.read_at_program_counter()?;
 
