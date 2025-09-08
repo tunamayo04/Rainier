@@ -498,8 +498,137 @@ impl InstructionSet {
 
         let mut instructions_16bit: [Instruction; 256] = unsafe { mem::transmute(instructions_16bit) };
 
-        instructions_16bit[0x7F] = Instruction{ name: "BIT 7, A", opcode: 0x7f, length: 2, cycles: 2,
-            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, Register::A, 7) })) };
+        instructions_16bit[0x40] = Instruction{ name: "BIT 0, B", opcode: 0x40, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.b(), 0) })) };
+        instructions_16bit[0x41] = Instruction{ name: "BIT 0, C", opcode: 0x41, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.c(), 0) })) };
+        instructions_16bit[0x42] = Instruction{ name: "BIT 0, D", opcode: 0x42, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.d(), 0) })) };
+        instructions_16bit[0x43] = Instruction{ name: "BIT 0, E", opcode: 0x43, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.e(), 0) })) };
+        instructions_16bit[0x44] = Instruction{ name: "BIT 0, H", opcode: 0x44, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.h(), 0) })) };
+        instructions_16bit[0x45] = Instruction{ name: "BIT 0, L", opcode: 0x45, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.l(), 0) })) };
+        instructions_16bit[0x46] = Instruction{ name: "BIT 0, (HL)", opcode: 0x46, length: 2, cycles: 3,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::bit(registers, mmu.read_byte(registers.hl() as usize).unwrap(), 0) })) };
+        instructions_16bit[0x47] = Instruction{ name: "BIT 0, A", opcode: 0x47, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.a(), 0) })) };
+        instructions_16bit[0x48] = Instruction{ name: "BIT 1, B", opcode: 0x48, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.b(), 1) })) };
+        instructions_16bit[0x49] = Instruction{ name: "BIT 1, C", opcode: 0x49, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.c(), 1) })) };
+        instructions_16bit[0x4A] = Instruction{ name: "BIT 1, D", opcode: 0x4A, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.d(), 1) })) };
+        instructions_16bit[0x4B] = Instruction{ name: "BIT 1, E", opcode: 0x4B, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.e(), 1) })) };
+        instructions_16bit[0x4C] = Instruction{ name: "BIT 1, H", opcode: 0x4C, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.h(), 1) })) };
+        instructions_16bit[0x4D] = Instruction{ name: "BIT 1, L", opcode: 0x4D, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.l(), 1) })) };
+        instructions_16bit[0x4E] = Instruction{ name: "BIT 1, (HL)", opcode: 0x4E, length: 2, cycles: 3,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::bit(registers, mmu.read_byte(registers.hl() as usize).unwrap(), 1) })) };
+        instructions_16bit[0x4F] = Instruction{ name: "BIT 1, A", opcode: 0x4F, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.a(), 1) })) };
+
+        instructions_16bit[0x50] = Instruction{ name: "BIT 2, B", opcode: 0x50, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.b(), 2) })) };
+        instructions_16bit[0x51] = Instruction{ name: "BIT 2, C", opcode: 0x51, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.c(), 2) })) };
+        instructions_16bit[0x52] = Instruction{ name: "BIT 2, D", opcode: 0x52, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.d(), 2) })) };
+        instructions_16bit[0x53] = Instruction{ name: "BIT 2, E", opcode: 0x53, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.e(), 2) })) };
+        instructions_16bit[0x54] = Instruction{ name: "BIT 2, H", opcode: 0x54, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.h(), 2) })) };
+        instructions_16bit[0x55] = Instruction{ name: "BIT 2, L", opcode: 0x55, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.l(), 2) })) };
+        instructions_16bit[0x56] = Instruction{ name: "BIT 2, (HL)", opcode: 0x56, length: 2, cycles: 3,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::bit(registers, mmu.read_byte(registers.hl() as usize).unwrap(), 2) })) };
+        instructions_16bit[0x57] = Instruction{ name: "BIT 2, A", opcode: 0x57, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.a(), 2) })) };
+        instructions_16bit[0x58] = Instruction{ name: "BIT 3, B", opcode: 0x50, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.b(), 3) })) };
+        instructions_16bit[0x59] = Instruction{ name: "BIT 3, C", opcode: 0x51, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.c(), 3) })) };
+        instructions_16bit[0x5A] = Instruction{ name: "BIT 3, D", opcode: 0x52, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.d(), 3) })) };
+        instructions_16bit[0x5B] = Instruction{ name: "BIT 3, E", opcode: 0x53, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.e(), 3) })) };
+        instructions_16bit[0x5C] = Instruction{ name: "BIT 3, H", opcode: 0x54, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.h(), 3) })) };
+        instructions_16bit[0x5D] = Instruction{ name: "BIT 3, L", opcode: 0x55, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.l(), 3) })) };
+        instructions_16bit[0x5E] = Instruction{ name: "BIT 3, (HL)", opcode: 0x56, length: 2, cycles: 3,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::bit(registers, mmu.read_byte(registers.hl() as usize).unwrap(), 3) })) };
+        instructions_16bit[0x5F] = Instruction{ name: "BIT 3, A", opcode: 0x57, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.a(), 3) })) };
+
+        instructions_16bit[0x60] = Instruction{ name: "BIT 4, B", opcode: 0x60, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.b(), 4) })) };
+        instructions_16bit[0x61] = Instruction{ name: "BIT 4, C", opcode: 0x61, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.c(), 4) })) };
+        instructions_16bit[0x62] = Instruction{ name: "BIT 4, D", opcode: 0x62, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.d(), 4) })) };
+        instructions_16bit[0x63] = Instruction{ name: "BIT 4, E", opcode: 0x63, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.e(), 4) })) };
+        instructions_16bit[0x64] = Instruction{ name: "BIT 4, H", opcode: 0x64, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.h(), 4) })) };
+        instructions_16bit[0x65] = Instruction{ name: "BIT 4, L", opcode: 0x65, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.l(), 4) })) };
+        instructions_16bit[0x66] = Instruction{ name: "BIT 4, (HL)", opcode: 0x66, length: 2, cycles: 3,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::bit(registers, mmu.read_byte(registers.hl() as usize).unwrap(), 4) })) };
+        instructions_16bit[0x67] = Instruction{ name: "BIT 4, A", opcode: 0x67, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.a(), 4) })) };
+        instructions_16bit[0x68] = Instruction{ name: "BIT 5, B", opcode: 0x68, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.b(), 5) })) };
+        instructions_16bit[0x69] = Instruction{ name: "BIT 5, C", opcode: 0x69, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.c(), 5) })) };
+        instructions_16bit[0x6A] = Instruction{ name: "BIT 5, D", opcode: 0x6A, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.d(), 5) })) };
+        instructions_16bit[0x6B] = Instruction{ name: "BIT 5, E", opcode: 0x6B, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.e(), 5) })) };
+        instructions_16bit[0x6C] = Instruction{ name: "BIT 5, H", opcode: 0x6C, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.h(), 5) })) };
+        instructions_16bit[0x6D] = Instruction{ name: "BIT 5, L", opcode: 0x6D, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.l(), 5) })) };
+        instructions_16bit[0x6E] = Instruction{ name: "BIT 5, (HL)", opcode: 0x6E, length: 2, cycles: 3,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::bit(registers, mmu.read_byte(registers.hl() as usize).unwrap(), 5) })) };
+        instructions_16bit[0x6F] = Instruction{ name: "BIT 5, A", opcode: 0x6F, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.a(), 5) })) };
+
+        instructions_16bit[0x70] = Instruction{ name: "BIT 6, B", opcode: 0x70, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.b(), 6) })) };
+        instructions_16bit[0x71] = Instruction{ name: "BIT 6, C", opcode: 0x71, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.c(), 6) })) };
+        instructions_16bit[0x72] = Instruction{ name: "BIT 6, D", opcode: 0x72, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.d(), 6) })) };
+        instructions_16bit[0x73] = Instruction{ name: "BIT 6, E", opcode: 0x73, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.e(), 6) })) };
+        instructions_16bit[0x74] = Instruction{ name: "BIT 6, H", opcode: 0x74, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.h(), 6) })) };
+        instructions_16bit[0x75] = Instruction{ name: "BIT 6, L", opcode: 0x75, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.l(), 6) })) };
+        instructions_16bit[0x76] = Instruction{ name: "BIT 6, (HL)", opcode: 0x76, length: 2, cycles: 3,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::bit(registers, mmu.read_byte(registers.hl() as usize).unwrap(), 6) })) };
+        instructions_16bit[0x77] = Instruction{ name: "BIT 6, A", opcode: 0x77, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.a(), 6) })) };
+        instructions_16bit[0x78] = Instruction{ name: "BIT 7, B", opcode: 0x78, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.b(), 7) })) };
+        instructions_16bit[0x79] = Instruction{ name: "BIT 7, C", opcode: 0x79, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.c(), 7) })) };
+        instructions_16bit[0x7A] = Instruction{ name: "BIT 7, D", opcode: 0x7A, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.d(), 7) })) };
+        instructions_16bit[0x7B] = Instruction{ name: "BIT 7, E", opcode: 0x7B, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.e(), 7) })) };
+        instructions_16bit[0x7C] = Instruction{ name: "BIT 7, H", opcode: 0x7C, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.h(), 7) })) };
+        instructions_16bit[0x7D] = Instruction{ name: "BIT 7, L", opcode: 0x7D, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.l(), 7) })) };
+        instructions_16bit[0x7E] = Instruction{ name: "BIT 7, (HL)", opcode: 0x7E, length: 2, cycles: 3,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::bit(registers, mmu.read_byte(registers.hl() as usize).unwrap(), 7) })) };
+        instructions_16bit[0x7F] = Instruction{ name: "BIT 7, A", opcode: 0x7F, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::bit(registers, registers.a(), 7) })) };
 
         // endregion
 
@@ -741,9 +870,9 @@ impl InstructionSet {
     }
 
     // Tests the bit b of the 8-bit register r.
-    // Flags: !r7 0 1 -
-    fn bit(registers: &mut Registers, register: Register, value: u8) {
-        let bit_check = registers.get_8bit_register(register) & (1 << value);
+    // Flags: !rn 0 1 -
+    fn bit(registers: &mut Registers, value: u8, bit_position: u8) {
+        let bit_check = value & (1 << bit_position);
 
         registers.set_zero_flag(bit_check == 0);
         registers.set_subtraction_flag(false);
