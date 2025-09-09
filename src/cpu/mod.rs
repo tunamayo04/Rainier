@@ -133,7 +133,7 @@ impl Cpu {
                 _ => (None, None),
             };
 
-            let name = if instruction.name == "" { "Unimplemented instruction " } else { instruction.name };
+            let name = if instruction.name == "" { String::from("Unimplemented instruction ") } else { instruction.name };
 
             instructions.push(
                 DebugInstruction {
@@ -141,7 +141,7 @@ impl Cpu {
                     opcode,
                     first_operand,
                     second_operand,
-                    name: name.to_string(),
+                    name,
                 }
             )
         }

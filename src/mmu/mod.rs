@@ -222,6 +222,50 @@ impl Mmu {
         }
     }
 
+    pub fn get_byte_ref(&mut self, address: usize) -> Result<&mut u8> {
+        Ok(match MemoryRegion::from_address(address)? {
+            RomBankZero => {
+                let relative_address = address - RomBankZero as usize;
+                &mut self.rom_bank_zero[relative_address]
+            }
+            RomBankSwap => {
+                let relative_address = address - RomBankSwap as usize;
+                &mut self.rom_bank_swap[relative_address]
+            }
+            VideoRam => {
+                let relative_address = address - VideoRam as usize;
+                &mut self.video_ram[relative_address]
+            }
+            ExternalRam => {
+                let relative_address = address - ExternalRam as usize;
+                &mut self.external_ram[relative_address]
+            }
+            WorkRam => {
+                let relative_address = address - WorkRam as usize;
+                &mut self.work_ram[relative_address]
+            }
+            EchoRam => {
+                let relative_address = address - EchoRam as usize;
+                &mut self.echo_ram[relative_address]
+            }
+            SpriteAttributionTable => {
+                let relative_address = address - SpriteAttributionTable as usize;
+                &mut self.sprite_attribution_table[relative_address]
+            }
+            IO => {
+                let relative_address = address - IO as usize;
+                &mut self.io[relative_address]
+            }
+            HighRam => {
+                let relative_address = address - HighRam as usize;
+                &mut self.high_ram[relative_address]
+            }
+            InterruptEnableRegister => {
+                &mut self.interrupt_enable_register
+            }
+        })
+    }
+
     pub fn dump_memory_region(&self, region: MemoryRegion) -> Vec<u8> {
         match region {
             RomBankZero => self.rom_bank_zero.to_vec(),

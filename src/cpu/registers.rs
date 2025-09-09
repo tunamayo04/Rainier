@@ -82,27 +82,35 @@ impl Registers {
 
     // --- 8-bit register getters/setters ---
     pub fn a(&self) -> u8 { self.a }
+    pub fn a_ref(&mut self) -> &mut u8 { &mut self.a }
     pub fn set_a(&mut self, val: u8) { self.a = val }
 
     pub fn b(&self) -> u8 { self.b }
+    pub fn b_ref(&mut self) -> &mut u8 { &mut self.b }
     pub fn set_b(&mut self, val: u8) { self.b = val }
 
     pub fn c(&self) -> u8 { self.c }
+    pub fn c_ref(&mut self) -> &mut u8 { &mut self.c }
     pub fn set_c(&mut self, val: u8) { self.c = val }
 
     pub fn d(&self) -> u8 { self.d }
+    pub fn d_ref(&mut self) -> &mut u8 { &mut self.d }
     pub fn set_d(&mut self, val: u8) { self.d = val }
 
     pub fn e(&self) -> u8 { self.e }
+    pub fn e_ref(&mut self) -> &mut u8 { &mut self.e }
     pub fn set_e(&mut self, val: u8) { self.e = val }
 
     pub fn f(&self) -> u8 { self.f }
+    pub fn f_ref(&mut self) -> &mut u8 { &mut self.f }
     pub fn set_f(&mut self, val: u8) { self.f = val & 0xF0 } // lower 4 bits always 0
 
     pub fn h(&self) -> u8 { self.h }
+    pub fn h_ref(&mut self) -> &mut u8 { &mut self.h }
     pub fn set_h(&mut self, val: u8) { self.h = val }
 
     pub fn l(&self) -> u8 { self.l }
+    pub fn l_ref(&mut self) -> &mut u8 { &mut self.l }
     pub fn set_l(&mut self, val: u8) { self.l = val }
 
     // --- 16-bit register pair getters/setters ---
