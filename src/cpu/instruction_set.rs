@@ -2,7 +2,7 @@ use std::cell::{RefCell};
 use std::{fmt, mem};
 use std::mem::MaybeUninit;
 use std::rc::Rc;
-use crate::bit_utils::{carry_check_add_8bit, carry_check_sub_8bit, concatenate_bytes, split_2bytes};
+use crate::bit_utils::{carry_check_add_16bit, carry_check_add_8bit, carry_check_sub_8bit, concatenate_bytes, split_2bytes};
 use crate::cpu::registers::{Register, Registers};
 use crate::mmu::Mmu;
 
@@ -75,6 +75,15 @@ impl InstructionSet {
             operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::dec_8bit(registers, Register::B) })) };
         instructions_8bit[0x06] = Instruction{ name: String::from("LD B, d8"), opcode: 0x06, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::ld_8bit(registers, Register::B, value) })) } ;
+        instructions_8bit[0x08] = Instruction{ name: String::from("LD (a16), SP"), opcode: 0x08, length: 3, cycles: 5,
+            operation: Operation::Binary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers, lower_byte: u8, upper_byte: u8| {
+                let (lower_sp, higher_sp) = split_2bytes(registers.sp());
+                let address = concatenate_bytes(lower_byte, upper_byte);
+                Self::ld_8bit_mem(mmu, address, lower_sp);
+                Self::ld_8bit_mem(mmu, address + 1, higher_sp);
+            })) } ;
+        instructions_8bit[0x09] = Instruction{ name: String::from("ADD HL, BC"), opcode: 0x09, length: 1, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::add_16bit(registers, Register::HL, registers.bc()) })) } ;
         instructions_8bit[0x0A] = Instruction{ name: String::from("LD A, (BC)"), opcode: 0x0A, length: 1, cycles: 2,
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::ld_8bit(registers, Register::A, mmu.read_byte(registers.bc() as usize).unwrap()) })) };
         instructions_8bit[0x0B] = Instruction{ name: String::from("DEC BC"), opcode: 0x0B, length: 1, cycles: 2,
@@ -98,6 +107,10 @@ impl InstructionSet {
             operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::dec_8bit(registers, Register::D) })) };
         instructions_8bit[0x16] = Instruction{ name: String::from("LD D, d8"), opcode: 0x16, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::ld_8bit(registers, Register::D, value) })) } ;
+        instructions_8bit[0x18] = Instruction{ name: String::from("JR s8"), opcode: 0x18, length: 2, cycles: 3,
+            operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::jr(registers, value) })) } ;
+        instructions_8bit[0x19] = Instruction{ name: String::from("ADD HL, DE"), opcode: 0x19, length: 1, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::add_16bit(registers, Register::HL, registers.de()) })) } ;
         instructions_8bit[0x1A] = Instruction{ name: String::from("LD A, (DE)"), opcode: 0x1A, length: 1, cycles: 2,
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::ld_8bit(registers, Register::A, mmu.read_byte(registers.de() as usize).unwrap()) })) };
         instructions_8bit[0x1B] = Instruction{ name: String::from("DEC DE"), opcode: 0x1B, length: 1, cycles: 2,
@@ -125,6 +138,10 @@ impl InstructionSet {
             operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::dec_8bit(registers, Register::H) })) };
         instructions_8bit[0x26] = Instruction{ name: String::from("LD H, d8"), opcode: 0x26, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::ld_8bit(registers, Register::H, value) })) } ;
+        instructions_8bit[0x28] = Instruction{ name: String::from("JR Z, s8"), opcode: 0x28, length: 2, cycles: 3,
+            operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { if registers.zero_flag() { Self::jr(registers, value) } })) } ;
+        instructions_8bit[0x29] = Instruction{ name: String::from("ADD HL, HL"), opcode: 0x29, length: 1, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::add_16bit(registers, Register::HL, registers.hl()) })) } ;
         instructions_8bit[0x2A] = Instruction{ name: String::from("LD A, (HL+)"), opcode: 0x2A, length: 1, cycles: 2,
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| {
                 Self::ld_8bit(registers, Register::A, mmu.read_byte(registers.hl() as usize).unwrap());
@@ -150,8 +167,16 @@ impl InstructionSet {
                 registers.set_hl(registers.hl() - 1) })) } ;
         instructions_8bit[0x33] = Instruction{ name: String::from("INC SP"), opcode: 0x33, length: 1, cycles: 2,
             operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::inc_16bit(registers, Register::SP ) })) };
+        instructions_8bit[0x34] = Instruction{ name: String::from("INC (HL)"), opcode: 0x34, length: 1, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::inc_mem(registers, mmu, registers.hl() as usize) })) };
+        instructions_8bit[0x35] = Instruction{ name: String::from("DEC (HL)"), opcode: 0x35, length: 1, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::dec_mem(registers, mmu, registers.hl() as usize) })) };
         instructions_8bit[0x36] = Instruction{ name: String::from("LD (HL), d8"), opcode: 0x36, length: 2, cycles: 3,
             operation: Operation::Unary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers, value: u8| { Self::ld_8bit_mem(mmu, registers.hl(), value) })) } ;
+        instructions_8bit[0x38] = Instruction{ name: String::from("JRCZ, s8"), opcode: 0x38, length: 2, cycles: 3,
+            operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { if registers.carry_flag() { Self::jr(registers, value) } })) } ;
+        instructions_8bit[0x39] = Instruction{ name: String::from("ADD HL, SP"), opcode: 0x39, length: 1, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::add_16bit(registers, Register::HL, registers.sp()) })) } ;
         instructions_8bit[0x3A] = Instruction{ name: String::from("LD A, (HL-)"), opcode: 0x3A, length: 1, cycles: 2,
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| {
                 Self::ld_8bit(registers, Register::A, mmu.read_byte(registers.hl() as usize).unwrap());
@@ -350,34 +375,61 @@ impl InstructionSet {
         instructions_8bit[0xBF] = Instruction{ name: String::from("CP A"), opcode: 0xBF, length: 1, cycles: 1,
             operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::cp(registers, registers.a(), registers.a()) })) };
 
+        instructions_8bit[0xC0] = Instruction{ name: String::from("RET NZ"), opcode: 0xC0, length: 1, cycles: 5,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { if !registers.zero_flag() { Self::ret(mmu, registers) } })) };
         instructions_8bit[0xC1] = Instruction{ name: String::from("POP BC"), opcode: 0xC1, length: 1, cycles: 3,
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::pop(mmu, registers, Register::BC) })) };
+        instructions_8bit[0xC2] = Instruction{ name: String::from("JP NZ, a16"), opcode: 0xC2, length: 3, cycles: 4,
+            operation: Operation::Binary(Rc::new(|_, registers: &mut Registers, lower_bits: u8, upper_bits: u8| { if !registers.zero_flag() { Self::jmp(registers, lower_bits, upper_bits) } })) };
         instructions_8bit[0xC3] = Instruction{ name: String::from("JP a16"), opcode: 0xC3, length: 3, cycles: 2,
             operation: Operation::Binary(Rc::new(|_, registers: &mut Registers, lower_bits: u8, upper_bits: u8| { Self::jmp(registers, lower_bits, upper_bits) })) };
+        instructions_8bit[0xC4] = Instruction{ name: String::from("CALL NZ, a16"), opcode: 0xC4, length: 3, cycles: 6,
+            operation: Operation::Binary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers, lower_bits: u8, upper_bits: u8| { if !registers.zero_flag() { Self::call(mmu, registers, lower_bits, upper_bits) } })) };
         instructions_8bit[0xC5] = Instruction{ name: String::from("PUSH BC"), opcode: 0xC5, length: 1, cycles: 4,
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::push(mmu, registers, registers.bc()) })) };
         instructions_8bit[0xC6] = Instruction{ name: String::from("ADD A, d8"), opcode: 0xC6, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::add(registers, registers.a(), value) })) };
+        instructions_8bit[0xC7] = Instruction{ name: String::from("RST 0"), opcode: 0xC7, length: 1, cycles: 4,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::call(mmu, registers, 0, 0) })) };
         instructions_8bit[0xC8] = Instruction{ name: String::from("RET Z"), opcode: 0xC8, length: 1, cycles: 5, // TODO: Handle variable cycles
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { if registers.zero_flag() { Self::ret(mmu, registers) } })) };
         instructions_8bit[0xC9] = Instruction{ name: String::from("RET"), opcode: 0xC9, length: 1, cycles: 4,
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::ret(mmu, registers) })) };
+        instructions_8bit[0xCA] = Instruction{ name: String::from("JP Z, a16"), opcode: 0xCA, length: 3, cycles: 4,
+            operation: Operation::Binary(Rc::new(|_, registers: &mut Registers, lower_bits: u8, upper_bits: u8| { if registers.zero_flag() { Self::jmp(registers, lower_bits, upper_bits) } })) };
+        instructions_8bit[0xCC] = Instruction{ name: String::from("CALL Z, a16"), opcode: 0xCC, length: 3, cycles: 6,
+            operation: Operation::Binary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers, lower_byte: u8, higher_byte: u8| { if registers.zero_flag() { Self::call(mmu, registers, lower_byte, higher_byte) } })) };
         instructions_8bit[0xCD] = Instruction{ name: String::from("CALL a16"), opcode: 0xCD, length: 3, cycles: 6,
             operation: Operation::Binary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers, lower_byte: u8, higher_byte: u8| { Self::call(mmu, registers, lower_byte, higher_byte) })) };
         instructions_8bit[0xCE] = Instruction{ name: String::from("ADC A, d8"), opcode: 0xCE, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::adc(registers, registers.a(), value) })) };
+        instructions_8bit[0xCF] = Instruction{ name: String::from("RST 1"), opcode: 0xC7, length: 1, cycles: 4,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::call(mmu, registers, 0, 0x08) })) };
 
+        instructions_8bit[0xD0] = Instruction{ name: String::from("RET NC"), opcode: 0xD0, length: 1, cycles: 5,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { if !registers.carry_flag() { Self::ret(mmu, registers) } })) };
         instructions_8bit[0xD1] = Instruction{ name: String::from("POP DE"), opcode: 0xD1, length: 1, cycles: 3,
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::pop(mmu, registers, Register::DE) })) };
+        instructions_8bit[0xD2] = Instruction{ name: String::from("JP NC, a16"), opcode: 0xD2, length: 3, cycles: 4,
+            operation: Operation::Binary(Rc::new(|_, registers: &mut Registers, lower_bits: u8, upper_bits: u8| { if !registers.carry_flag() { Self::jmp(registers, lower_bits, upper_bits) } })) };
+        instructions_8bit[0xC4] = Instruction{ name: String::from("CALL NC, a16"), opcode: 0xD4, length: 3, cycles: 6,
+            operation: Operation::Binary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers, lower_bits: u8, upper_bits: u8| { if !registers.carry_flag() { Self::call(mmu, registers, lower_bits, upper_bits) } })) };
         instructions_8bit[0xD5] = Instruction{ name: String::from("PUSH DE"), opcode: 0xD5, length: 1, cycles: 4,
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::push(mmu, registers, registers.de()) })) };
         instructions_8bit[0xD6] = Instruction{ name: String::from("SUB A, d8"), opcode: 0xD6, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::sub(registers, registers.a(), value) })) };
-        instructions_8bit[0xC8] = Instruction{ name: String::from("RET C"), opcode: 0xC8, length: 1, cycles: 5, // TODO: Handle variable cycles
+        instructions_8bit[0xD7] = Instruction{ name: String::from("RST 2"), opcode: 0xD7, length: 1, cycles: 4,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::call(mmu, registers, 0x10, 0) })) };
+        instructions_8bit[0xD8] = Instruction{ name: String::from("RET C"), opcode: 0xD8, length: 1, cycles: 5, // TODO: Handle variable cycles
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { if registers.carry_flag() { Self::ret(mmu, registers) } })) };
+        instructions_8bit[0xDA] = Instruction{ name: String::from("JP C, a16"), opcode: 0xDA, length: 3, cycles: 4,
+            operation: Operation::Binary(Rc::new(|_, registers: &mut Registers, lower_bits: u8, upper_bits: u8| { if registers.carry_flag() { Self::jmp(registers, lower_bits, upper_bits) } })) };
+        instructions_8bit[0xDC] = Instruction{ name: String::from("CALL C, a16"), opcode: 0xDC, length: 3, cycles: 6,
+            operation: Operation::Binary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers, lower_byte: u8, higher_byte: u8| { if registers.carry_flag() { Self::call(mmu, registers, lower_byte, higher_byte) } })) };
         instructions_8bit[0xDE] = Instruction{ name: String::from("SBC A, d8"), opcode: 0xDE, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::sbc(registers, registers.a(), value) })) };
-
+        instructions_8bit[0xDF] = Instruction{ name: String::from("RST 3"), opcode: 0xDF, length: 1, cycles: 4,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::call(mmu, registers, 0, 0x18) })) };
 
         instructions_8bit[0xE0] = Instruction{ name: String::from("LD (a8), A"), opcode: 0xE0, length: 2, cycles: 4,
             operation: Operation::Unary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers, lower_byte: u8| {
@@ -395,6 +447,10 @@ impl InstructionSet {
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::push(mmu, registers, registers.hl()) })) };
         instructions_8bit[0xE6] = Instruction{ name: String::from("AND A, d8"), opcode: 0xE6, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::and(registers, registers.a(), value) })) };
+        instructions_8bit[0xE7] = Instruction{ name: String::from("RST 4"), opcode: 0xE7, length: 1, cycles: 4,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::call(mmu, registers, 0, 0x20) })) };
+        instructions_8bit[0xE8] = Instruction{ name: String::from("ADD SP, s8"), opcode: 0xE8, length: 1, cycles: 2,
+            operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::add_8bit_signed(registers, Register::HL, value as i8) })) } ;
         instructions_8bit[0xEA] = Instruction{ name: String::from("LD (a16), A"), opcode: 0xEA, length: 3, cycles: 4,
             operation: Operation::Binary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers, lower_byte: u8, higher_byte: u8| {
                 let address = concatenate_bytes(lower_byte, higher_byte);
@@ -402,6 +458,8 @@ impl InstructionSet {
         };
         instructions_8bit[0xEE] = Instruction{ name: String::from("XOR A, d8"), opcode: 0xE, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::xor(registers, registers.a(), value) })) };
+        instructions_8bit[0xEF] = Instruction{ name: String::from("RST 5"), opcode: 0xEF, length: 1, cycles: 4,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::call(mmu, registers, 0, 0x28) })) };
 
         instructions_8bit[0xF0] = Instruction{ name: String::from("LD A, (a8)"), opcode: 0xF0, length: 2, cycles: 3,
             operation: Operation::Unary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers, lower_byte: u8| {
@@ -422,6 +480,8 @@ impl InstructionSet {
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::push(mmu, registers, registers.af()) })) };
         instructions_8bit[0xF6] = Instruction{ name: String::from("OR A, d8"), opcode: 0xF6, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::or(registers, registers.a(), value) })) };
+        instructions_8bit[0xF7] = Instruction{ name: String::from("RST 6"), opcode: 0xF7, length: 1, cycles: 4,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::call(mmu, registers, 0, 0x30) })) };
         instructions_8bit[0xFA] = Instruction{ name: String::from("LD A, (a16)"), opcode: 0xFA, length: 3, cycles: 4,
             operation: Operation::Binary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers, lower_byte: u8, higher_byte: u8| {
                 let address = concatenate_bytes(lower_byte, higher_byte) as usize;
@@ -432,6 +492,8 @@ impl InstructionSet {
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { mmu.set_ime(1) })) };
         instructions_8bit[0xFE] = Instruction{ name: String::from("CP d8"), opcode: 0xF8, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::cp(registers, registers.a(), value) })) };
+        instructions_8bit[0xFF] = Instruction{ name: String::from("RST 7"), opcode: 0xFF, length: 1, cycles: 4,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::call(mmu, registers, 0, 0x38) })) };
 
         // endregion
 
@@ -439,7 +501,40 @@ impl InstructionSet {
 
         let mut instructions_16bit: [Instruction; 256] = unsafe { mem::transmute(instructions_16bit) };
 
-        // BIT
+        instructions_16bit[0x30] = Instruction{ name: String::from("SWAP B"), opcode: 0x30, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::swap(mmu, registers, |_, r| r.b_ref()) })) };
+        instructions_16bit[0x31] = Instruction{ name: String::from("SWAP C"), opcode: 0x31, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::swap(mmu, registers, |_, r| r.c_ref()) })) };
+        instructions_16bit[0x32] = Instruction{ name: String::from("SWAP D"), opcode: 0x32, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::swap(mmu, registers,|_, r| r.d_ref()) })) };
+        instructions_16bit[0x33] = Instruction{ name: String::from("SWAP E"), opcode: 0x33, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::swap(mmu, registers, |_, r| r.e_ref()) })) };
+        instructions_16bit[0x34] = Instruction{ name: String::from("SWAP H"), opcode: 0x34, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::swap(mmu, registers, |_, r| r.h_ref()) })) };
+        instructions_16bit[0x35] = Instruction{ name: String::from("SWAP L"), opcode: 0x35, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::swap(mmu, registers, |_, r| r.l_ref()) })) };
+        instructions_16bit[0x36] = Instruction{ name: String::from("SWAP (HL)"), opcode: 0x36, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::swap(mmu, registers, |m, r| m.get_byte_ref(r.hl() as usize).unwrap()) })) };
+        instructions_16bit[0x37] = Instruction{ name: String::from("SWAP A"), opcode: 0x37, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::srl(mmu, registers, |_, r| r.a_ref()) })) };
+        instructions_16bit[0x38] = Instruction{ name: String::from("SRL B"), opcode: 0x38, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::srl(mmu, registers, |m, r| r.b_ref()) })) };
+        instructions_16bit[0x39] = Instruction{ name: String::from("SRL C"), opcode: 0x39, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::srl(mmu, registers, |m, r| r.c_ref()) })) };
+        instructions_16bit[0x3A] = Instruction{ name: String::from("SRL D"), opcode: 0x3A, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::srl(mmu, registers, |m, r| r.d_ref()) })) };
+        instructions_16bit[0x3B] = Instruction{ name: String::from("SRL E"), opcode: 0x3B, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::srl(mmu, registers, |m, r| r.e_ref()) })) };
+        instructions_16bit[0x3C] = Instruction{ name: String::from("SRL H"), opcode: 0x3C, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::srl(mmu, registers, |m, r| r.h_ref()) })) };
+        instructions_16bit[0x3D] = Instruction{ name: String::from("SRL L"), opcode: 0x3D, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::srl(mmu, registers, |m, r| r.l_ref()) })) };
+        instructions_16bit[0x3E] = Instruction{ name: String::from("SRL (HL)"), opcode: 0x3E, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::srl(mmu, registers, |m, r|  m.get_byte_ref(r.hl() as usize).unwrap()) })) };
+        instructions_16bit[0x3F] = Instruction{ name: String::from("SRL A"), opcode: 0x3F, length: 2, cycles: 2,
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::srl(mmu, registers, |m, r| r.a_ref()) })) };
+
+        // BIT (0x40 - 0x7F)
         for bit in 0..=7 {
             for (i, (destination_name, accessor)) in source_regs.iter().enumerate() {
                 let name = format!("BIT {}, {}", bit, destination_name);
@@ -567,12 +662,36 @@ impl InstructionSet {
         registers.set_16bit_register(register, new_value);
     }
 
+    // Increment the content of a memory address by 1
+    // Flags: Z 0 8-bit -
+    fn inc_mem(registers: &mut Registers, mmu: &mut Mmu, address: usize) {
+        let original_value = mmu.read_byte(address).unwrap();
+        let new_value = original_value + 1;
+        mmu.write_byte(address, new_value).unwrap();
+
+        registers.set_zero_flag(new_value == 0);
+        registers.set_subtraction_flag(false);
+        registers.set_half_carry_flag(carry_check_add_8bit(original_value, 1));
+    }
+
     // Decrements the contents of a register pair by 1
     // Flags: - - - -
     fn dec_16bit(registers: &mut Registers, register: Register) {
         let original_value = registers.get_16bit_register(register.clone());
         let new_value = original_value - 1;
         registers.set_16bit_register(register, new_value);
+    }
+
+    // Increment the content of a memory address by 1
+    // Flags: Z 0 8-bit -
+    fn dec_mem(registers: &mut Registers, mmu: &mut Mmu, address: usize) {
+        let original_value = mmu.read_byte(address).unwrap();
+        let new_value = original_value - 1;
+        mmu.write_byte(address, new_value).unwrap();
+
+        registers.set_zero_flag(new_value == 0);
+        registers.set_subtraction_flag(true);
+        registers.set_half_carry_flag(carry_check_sub_8bit(original_value, 1));
     }
 
     // Loads the value of address in the program counter
@@ -593,6 +712,24 @@ impl InstructionSet {
         registers.set_subtraction_flag(false);
         registers.set_half_carry_flag(carry_check_add_8bit(left_operator, right_operator));
         registers.set_carry_flag((left_operator as u16 + right_operator as u16) > 0xFF);
+    }
+
+    // Add a 16 bit value to a register and store the result in that register
+    // Flags: - 0 16-bit 16-bit
+    fn add_16bit(registers: &mut Registers, register: Register, value: u16) {
+        let left_operand = registers.get_16bit_register(register);
+        let sum = left_operand + value;
+
+        registers.set_16bit_register(register, sum);
+
+        registers.set_zero_flag(sum == 0);
+        registers.set_subtraction_flag(false);
+        registers.set_half_carry_flag(carry_check_add_16bit(left_operand, value));
+        registers.set_carry_flag((left_operand as u32 + value as u32) > 0xFFFF);
+    }
+
+    fn add_8bit_signed(registers: &mut Registers, register: Register, value: i8) {
+        todo!()
     }
 
     // Add two values along with the carry flag and store the content in register A
@@ -699,9 +836,6 @@ impl InstructionSet {
         registers.set_16bit_register(register, concatenate_bytes(lower_byte, higher_byte));
     }
 
-    fn ld_16bit_mem(mmu: &mut Mmu, address: u16, value: u8) {
-    }
-
     // Unconditional function call to the absolute address specified by the 16-bit operand nn
     // Flags: - - - -
     fn call(mmu: &mut Mmu, registers: &mut Registers, lower_byte: u8, higher_byte: u8) {
@@ -723,6 +857,10 @@ impl InstructionSet {
         let steps = (steps as i8) as i16; // Steps is signed... source of a nasty bug
 
         registers.set_pc((current_pc + steps) as u16);
+    }
+
+    fn jp(registers: &mut Registers, address: u16) {
+        registers.set_pc(address);
     }
 
     // Push a value on the stack
@@ -757,6 +895,7 @@ impl InstructionSet {
 
         registers.set_16bit_register(Register::PC, concatenate_bytes(value_lower, value_higher));
     }
+
 
     // Tests the bit b of the 8-bit register r.
     // Flags: !rn 0 1 -
@@ -796,5 +935,37 @@ impl InstructionSet {
         registers.set_carry_flag(!registers.carry_flag());
         registers.set_subtraction_flag(false);
         registers.set_half_carry_flag(false);
+    }
+
+    // Shift the contents of the lower-order four bits (0-3) of register B to the higher-order four
+    // bits (4-7) of the register, and shift the higher-order four bits to the lower-order four bits.
+    // Flags: Z 0 0 0
+    fn swap<F>(mmu: &mut Mmu, registers: &mut Registers, mut get_value: F) where for<'a> F: FnMut(&'a mut Mmu, &'a mut Registers) -> &'a mut u8 {
+        let value = get_value(mmu, registers);
+
+        let higher_bits = (*value & 0xF0) >> 4;
+        let lower_bits = *value & 0x0F;
+        let new_value = (lower_bits << 4) | higher_bits;
+
+        *value = new_value;
+
+        registers.set_zero_flag(new_value == 0);
+        registers.set_subtraction_flag(false);
+        registers.set_half_carry_flag(false);
+        registers.set_carry_flag(false);
+    }
+
+    // Shift the contents of register B to the right.
+    // Flags: Z 0 0 B0
+    fn srl<F>(mmu: &mut Mmu, registers: &mut Registers, mut get_value: F) where for<'a> F: FnMut(&'a mut Mmu, &'a mut Registers) -> &'a mut u8 {
+        let value = get_value(mmu, registers);
+
+        let lsb = *value & 1;
+        let new_value = *value >> 1;
+
+        registers.set_zero_flag(new_value == 0);
+        registers.set_subtraction_flag(false);
+        registers.set_half_carry_flag(false);
+        registers.set_carry_flag(new_value == 1);
     }
 }
