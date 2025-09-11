@@ -1,5 +1,4 @@
 use std::{cell::RefCell, io, rc::Rc};
-use std::io::stdout;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, MouseEvent, MouseEventKind};
 use ratatui::{
     layout::{Layout, Constraint, Direction, Rect},
@@ -7,8 +6,6 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
     Frame, DefaultTerminal,
 };
-use ratatui::crossterm::event::EnableMouseCapture;
-use ratatui::crossterm::execute;
 use ratatui::prelude::{Color, Style};
 use ratatui::style::Modifier;
 use ratatui::text::Span;
@@ -28,26 +25,30 @@ pub struct App {
     pub exit: bool,
     current_instruction_set: Vec<DebugInstruction>,
     current_instruction_id: usize,
+    pub breakpoints: Vec<u16>,
+    pub last_hit_breakpoint: Option<u16>,
     scroll: i16,
     backward_instructions_count: usize,
 }
 
 impl App {
     pub fn new(rainier: Rc<RefCell<Rainier>>) -> Self {
+        let breakpoints: Vec<u16> = vec![0x243C, 0x3DA];
+
         Self {
             rainier,
             requested_action: None,
             exit: false,
             current_instruction_set: Vec::new(),
             current_instruction_id: 0,
+            breakpoints,
+            last_hit_breakpoint: None,
             scroll: 0,
             backward_instructions_count: 5
         }
     }
 
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
-        execute!(stdout(), EnableMouseCapture)?;
-
         {
             let rainier = self.rainier.borrow();
 
@@ -73,11 +74,11 @@ impl App {
         let instructions = Line::from(vec![
             Span::styled(" Quit", Style::default()),
             Span::styled("<Q>", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-            Span::styled(" Trace", Style::default()),
+            Span::styled("  Trace", Style::default()),
             Span::styled( "<F1>", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-            Span::styled(" Step Over", Style::default()),
+            Span::styled("  Step Over", Style::default()),
             Span::styled( "<F2>", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-            Span::styled(" Run", Style::default()),
+            Span::styled("  Run", Style::default()),
             Span::styled( "<F3>", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
         ]);
         let outer_block = Block::default()
@@ -126,11 +127,13 @@ impl App {
             .skip(self.current_instruction_id - self.backward_instructions_count - self.scroll as usize)
             .enumerate()
             .map(|(i, instruction)| {
+                let breakpoint = if self.breakpoints.contains(&(instruction.address as u16)) { "🟠" } else { "  " };
                 let prefix = if i == self.backward_instructions_count + self.scroll as usize { "▶" } else { " " };
                 let first_operand = instruction.first_operand.map_or(String::from("  "), |operand| format!("{:02X}", operand));
                 let second_operand = instruction.second_operand.map_or(String::from("  "), |operand| format!("{:02X}", operand));
 
-                Line::from(format!(" {} ROM0:{:04X} {:02X} {} {}        {}",
+                Line::from(format!("{} {} ROM0:{:04X} {:02X} {} {}        {}",
+                    breakpoint,
                     prefix,
                     instruction.address,
                     instruction.opcode,
@@ -166,6 +169,10 @@ impl App {
                 self.requested_action = Some(Action::Trace);
                 self.scroll = 0;
             },
+            KeyCode::F(3) => {
+                self.requested_action = Some(Action::Run);
+                self.scroll = 0;
+            }
             _ => {}
         }
     }

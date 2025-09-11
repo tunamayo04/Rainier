@@ -7,9 +7,12 @@ mod ui;
 
 use std::cell::RefCell;
 use std::env;
+use std::io::stdout;
 use anyhow::Result;
 use std::path::Path;
 use std::rc::Rc;
+use ratatui::crossterm::event::EnableMouseCapture;
+use ratatui::crossterm::execute;
 use cpu::*;
 use mmu::*;
 use crate::ui::{Action, App};
@@ -116,12 +119,30 @@ fn main() -> Result<()> {
         }
     }
     else {
+        execute!(stdout(), EnableMouseCapture)?;
+
         while !debugger.exit {
             debugger.run(&mut terminal)?;
 
-            if debugger.requested_action == Some(Action::Trace) {
-                rainier.borrow_mut().cpu.emulation_loop(emulation_mode)?;
-                debugger.requested_action = None;
+            if let Some(requested_action) = &debugger.requested_action {
+                match requested_action {
+                    Action::Trace | Action::StepOver => {
+                        rainier.borrow_mut().cpu.emulation_loop(emulation_mode)?;
+                        debugger.requested_action = None;
+                        debugger.last_hit_breakpoint = None;
+                    }
+                    Action::Run => {
+                        let mut rainier = rainier.borrow_mut();
+
+                        while !debugger.breakpoints.contains(&rainier.cpu.registers.pc()) || debugger.last_hit_breakpoint.map_or(false, |breakpoint| rainier.cpu.registers.pc() == breakpoint) {
+                            rainier.cpu.emulation_loop(emulation_mode)?;
+                            debugger.last_hit_breakpoint = None;
+                        }
+
+                        debugger.requested_action = None;
+                        debugger.last_hit_breakpoint = Some(rainier.cpu.registers.pc());
+                    }
+                }
             }
         }
     }

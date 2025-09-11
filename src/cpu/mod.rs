@@ -50,7 +50,6 @@ impl Cpu {
 
         // 16-bit opcodes
         let is_16bit_opcode = if opcode == 0xCB {
-            print!("de");
             opcode = self.read_at_program_counter()?;
             instruction = self.instruction_set.fetch_instruction_16bit(opcode);
 
@@ -106,6 +105,12 @@ impl Cpu {
         let memory = mmu.dump_memory_region(MemoryRegion::RomBankZero);
 
         while pc < memory.len() {
+            // Cartridge header
+            if pc >= 0x104 && pc < 0x150 {
+                pc = 0x150;
+                continue;
+            }
+
             let address = pc;
 
             let opcode = *memory.get(address).unwrap();
