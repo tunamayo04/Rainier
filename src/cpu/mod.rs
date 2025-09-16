@@ -48,6 +48,7 @@ impl Cpu {
         let mut opcode = self.read_at_program_counter()?;
         let mut instruction = self.instruction_set.fetch_instruction(opcode);
 
+
         // 16-bit opcodes
         let is_16bit_opcode = if opcode == 0xCB {
             opcode = self.read_at_program_counter()?;

@@ -233,13 +233,13 @@ impl InstructionSet {
                     }
                 } else {
                     if *source_name == "(HL)" {
-                        Operation::Nullary(Rc::new(move |_, registers: &mut Registers| { Self::ld_8bit(registers, destination_accessor, source_accessor(registers)) }))
-                    } else {
                         Operation::Nullary(Rc::new(move |mmu: &mut Mmu, registers: &mut Registers| { Self::ld_8bit(registers, destination_accessor, mmu.read_byte(source_accessor(registers) as usize).unwrap()) }))
+                    } else {
+                        Operation::Nullary(Rc::new(move |_, registers: &mut Registers| { Self::ld_8bit(registers, destination_accessor, source_accessor(registers)) }))
                     }
                 };
 
-                instructions_8bit[opcode as usize] = Instruction { name, opcode, length: 2, cycles, operation };
+                instructions_8bit[opcode as usize] = Instruction { name, opcode, length: 1, cycles, operation };
             }
         }
 

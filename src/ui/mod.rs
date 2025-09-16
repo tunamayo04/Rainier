@@ -33,7 +33,7 @@ pub struct App {
 
 impl App {
     pub fn new(rainier: Rc<RefCell<Rainier>>) -> Self {
-        let breakpoints: Vec<u16> = vec![0x243C, 0x3DA];
+        let breakpoints: Vec<u16> = vec![0x157];
 
         Self {
             rainier,
@@ -111,7 +111,8 @@ impl App {
             Line::from(format!("DE: {:04X}    H: {}", rainier.cpu.registers.de(), if rainier.cpu.registers.half_carry_flag() { "✓" } else { "X" })),
             Line::from(format!("HL: {:04X}    C: {}", rainier.cpu.registers.hl(), if rainier.cpu.registers.carry_flag() { "✓" } else { "X" })),
             Line::from(format!("SP: {:04X}", rainier.cpu.registers.sp())),
-            Line::from(format!("PC: {:04X}", rainier.cpu.registers.pc()))];
+            Line::from(format!("PC: {:04X}", rainier.cpu.registers.pc())),
+            Line::from(format!("0xFF44: {:02X}", rainier.mmu.borrow().read_byte(0xFF44).unwrap()))];
 
         let block = Block::default().title("Registers").borders(Borders::ALL);
         let registers = Paragraph::new(lines).block(block);
