@@ -30,21 +30,11 @@ impl Cpu {
         }
     }
 
-    pub fn emulation_loop(&mut self, mode: EmulationMode) -> Result<()> {
-        match mode {
-            EmulationMode::Debug(iterations) => {
-                Ok(for i in 0..iterations {
-                    self.run_next_opcode()?;
-                    self.interrupts.handle_interrupts();
-                })
-            }
-            EmulationMode::Normal => {
-                loop {
-                    self.run_next_opcode()?;
-                    self.interrupts.handle_interrupts();
-                }
-            }
-        }
+    pub fn emulation_loop(&mut self) -> Result<u8> {
+        self.run_next_opcode()?;
+        self.interrupts.handle_interrupts();
+
+        Ok(1)
     }
 
     pub fn run_next_opcode(&mut self) -> Result<()> {

@@ -16,6 +16,7 @@ use ratatui::crossterm::event::EnableMouseCapture;
 use ratatui::crossterm::execute;
 use cpu::*;
 use mmu::*;
+use crate::ppu::Ppu;
 use crate::ui::{Action, App};
 
 #[derive(PartialOrd, PartialEq, Copy, Clone)]
@@ -26,20 +27,24 @@ enum EmulationMode {
 
 struct Rainier {
     mmu: Rc<RefCell<Mmu>>,
-    cpu: Cpu,
+    cpu: Rc<RefCell<Cpu>>,
+    ppu: Ppu,
 }
 
 impl Rainier {
     pub fn new() -> Result<Self> {
         let mmu = Rc::new(RefCell::new(Mmu::new()?));
-        let cpu = Cpu::new(mmu.clone());
+        let cpu = Rc::new(RefCell::new(Cpu::new(mmu.clone())));
+        let ppu = Ppu::new(mmu.clone(), cpu.clone());
 
-        Ok(Rainier { cpu, mmu })
+        Ok(Rainier { cpu, mmu, ppu })
     }
 
     // Set up the system as it would be after running the boot rom
     pub fn boot(&mut self) -> Result<()> {
-        let registers = &mut self.cpu.registers;
+        let mut cpu = self.cpu.borrow_mut();
+
+        let registers = &mut cpu.registers;
         registers.set_a(0x01);
         registers.set_b(0x00);
         registers.set_c(0x13);
@@ -115,12 +120,19 @@ fn main() -> Result<()> {
     };
 
     if emulation_mode == EmulationMode::Normal {
+        let mut rainier = rainier.borrow_mut();
+        let mut cpu = rainier.cpu.borrow_mut();
+
         loop {
-            rainier.borrow_mut().cpu.emulation_loop(emulation_mode)?
+            let cycles = cpu.emulation_loop()?;
+            rainier.ppu.emulation_loop(cycles)?;
         }
     }
     else {
         execute!(stdout(), EnableMouseCapture)?;
+
+        let mut rainier = rainier.borrow_mut();
+        let mut cpu = rainier.cpu.borrow_mut();
 
         while !debugger.exit {
             debugger.run(&mut terminal)?;
@@ -128,20 +140,18 @@ fn main() -> Result<()> {
             if let Some(requested_action) = &debugger.requested_action {
                 match requested_action {
                     Action::Trace | Action::StepOver => {
-                        rainier.borrow_mut().cpu.emulation_loop(emulation_mode)?;
+                        cpu.emulation_loop()?;
                         debugger.requested_action = None;
                         debugger.last_hit_breakpoint = None;
                     }
                     Action::Run => {
-                        let mut rainier = rainier.borrow_mut();
-
-                        while !debugger.breakpoints.contains(&rainier.cpu.registers.pc()) || debugger.last_hit_breakpoint.map_or(false, |breakpoint| rainier.cpu.registers.pc() == breakpoint) {
-                            rainier.cpu.emulation_loop(emulation_mode)?;
+                        while !debugger.breakpoints.contains(&cpu.registers.pc()) || debugger.last_hit_breakpoint.map_or(false, |breakpoint| cpu.registers.pc() == breakpoint) {
+                            cpu.emulation_loop()?;
                             debugger.last_hit_breakpoint = None;
                         }
 
                         debugger.requested_action = None;
-                        debugger.last_hit_breakpoint = Some(rainier.cpu.registers.pc());
+                        debugger.last_hit_breakpoint = Some(cpu.registers.pc());
                     }
                 }
             }

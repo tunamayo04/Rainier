@@ -51,14 +51,14 @@ impl App {
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
         {
             let rainier = self.rainier.borrow();
+            let cpu = rainier.cpu.borrow();
 
             if self.current_instruction_set.is_empty() {
-                let rainier = self.rainier.borrow();
-                let instructions = rainier.cpu.dump_instructions(rainier.cpu.registers.pc() as usize);
+                let instructions = cpu.dump_instructions(cpu.registers.pc() as usize);
                 self.current_instruction_set = instructions;
             }
 
-            self.current_instruction_id = self.current_instruction_set.iter().position(|r| r.address == rainier.cpu.registers.pc() as usize).unwrap()
+            self.current_instruction_id = self.current_instruction_set.iter().position(|r| r.address == cpu.registers.pc() as usize).unwrap()
         }
 
         terminal.draw(|frame| self.draw(frame))?;
@@ -105,13 +105,15 @@ impl App {
 
     fn draw_registers(&self, frame: &mut Frame, area: Rect) {
         let rainier = self.rainier.borrow();
+        let cpu = rainier.cpu.borrow();
+
         let lines: Vec<Line> = vec![
-            Line::from(format!("AF: {:04X}    Z: {}", rainier.cpu.registers.af(), if rainier.cpu.registers.zero_flag() { "✓" } else { "X" })),
-            Line::from(format!("BC: {:04X}    N: {}", rainier.cpu.registers.bc(), if rainier.cpu.registers.subtraction_flag() { "✓" } else { "X" })),
-            Line::from(format!("DE: {:04X}    H: {}", rainier.cpu.registers.de(), if rainier.cpu.registers.half_carry_flag() { "✓" } else { "X" })),
-            Line::from(format!("HL: {:04X}    C: {}", rainier.cpu.registers.hl(), if rainier.cpu.registers.carry_flag() { "✓" } else { "X" })),
-            Line::from(format!("SP: {:04X}", rainier.cpu.registers.sp())),
-            Line::from(format!("PC: {:04X}", rainier.cpu.registers.pc())),
+            Line::from(format!("AF: {:04X}    Z: {}", cpu.registers.af(), if cpu.registers.zero_flag() { "✓" } else { "X" })),
+            Line::from(format!("BC: {:04X}    N: {}", cpu.registers.bc(), if cpu.registers.subtraction_flag() { "✓" } else { "X" })),
+            Line::from(format!("DE: {:04X}    H: {}", cpu.registers.de(), if cpu.registers.half_carry_flag() { "✓" } else { "X" })),
+            Line::from(format!("HL: {:04X}    C: {}", cpu.registers.hl(), if cpu.registers.carry_flag() { "✓" } else { "X" })),
+            Line::from(format!("SP: {:04X}", cpu.registers.sp())),
+            Line::from(format!("PC: {:04X}", cpu.registers.pc())),
             Line::from(format!("0xFF44: {:02X}", rainier.mmu.borrow().read_byte(0xFF44).unwrap()))];
 
         let block = Block::default().title("Registers").borders(Borders::ALL);
