@@ -3,7 +3,7 @@ pub enum Register {
     A, B, C, D, E, H, L, AF, BC, DE, HL, SP, PC,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Registers {
     a: u8,
     b: u8,

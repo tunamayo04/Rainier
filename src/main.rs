@@ -4,6 +4,7 @@ mod cpu;
 mod mmu;
 mod bit_utils;
 mod ui;
+mod ppu;
 
 use std::cell::RefCell;
 use std::env;

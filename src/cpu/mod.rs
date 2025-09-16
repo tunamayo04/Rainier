@@ -21,10 +21,11 @@ pub struct Cpu {
 
 impl Cpu {
     pub fn new(mmu: Rc<RefCell<Mmu>>) -> Self {
+        let registers = Registers::new();
         Cpu {
             mmu: mmu.clone(),
-            registers: Registers::new(),
-            interrupts: Interrupts::new(mmu.clone()),
+            registers: registers.clone(),
+            interrupts: Interrupts::new(mmu.clone(), registers.clone()),
             instruction_set: InstructionSet::new(mmu.clone()),
         }
     }
@@ -33,12 +34,14 @@ impl Cpu {
         match mode {
             EmulationMode::Debug(iterations) => {
                 Ok(for i in 0..iterations {
-                    self.run_next_opcode()?
+                    self.run_next_opcode()?;
+                    self.interrupts.handle_interrupts();
                 })
             }
             EmulationMode::Normal => {
                 loop {
-                    self.run_next_opcode()?
+                    self.run_next_opcode()?;
+                    self.interrupts.handle_interrupts();
                 }
             }
         }
