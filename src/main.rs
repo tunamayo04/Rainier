@@ -45,19 +45,17 @@ impl Rainier {
         let mut cpu = self.cpu.borrow_mut();
 
         let registers = &mut cpu.registers;
-        registers.set_a(0x01);
+        registers.set_a(0x11);
         registers.set_b(0x00);
-        registers.set_c(0x13);
-        registers.set_d(0x00);
-        registers.set_e(0xd8);
-        registers.set_h(0x01);
-        registers.set_l(0x4d);
+        registers.set_c(0x00);
+        registers.set_d(0xFF);
+        registers.set_e(0x56);
+        registers.set_h(0x00);
+        registers.set_l(0x0D);
         registers.set_pc(0x0100);
-        registers.set_sp(0xfffe);
+        registers.set_sp(0xFFFE);
         registers.clear_all_flags();
         registers.set_zero_flag(true);
-        registers.set_half_carry_flag(true);
-        registers.set_carry_flag(true);
 
         let mut mmu = self.mmu.borrow_mut();
         mmu.set_p1(0xcf);
@@ -103,7 +101,7 @@ impl Rainier {
 
         mmu.write_byte(0xFF44, 0)?;
 
-        mmu.load_cartridge(Path::new("roms/tetris.gb"))
+        mmu.load_cartridge(Path::new("roms/gb-test-roms/cpu_instrs/individual/03-op sp,hl.gb"))
     }
 }
 
@@ -120,22 +118,21 @@ fn main() -> Result<()> {
     };
 
     if emulation_mode == EmulationMode::Normal {
-        let mut rainier = rainier.borrow_mut();
-        let mut cpu = rainier.cpu.borrow_mut();
 
         loop {
-            let cycles = cpu.emulation_loop()?;
-            rainier.ppu.emulation_loop(cycles)?;
+            let cycles = rainier.borrow_mut().cpu.borrow_mut().emulation_loop()?;
+            //rainier.borrow_mut().ppu.emulation_loop(cycles)?;
         }
     }
     else {
         execute!(stdout(), EnableMouseCapture)?;
 
-        let mut rainier = rainier.borrow_mut();
-        let mut cpu = rainier.cpu.borrow_mut();
 
         while !debugger.exit {
             debugger.run(&mut terminal)?;
+
+            let mut rainier = rainier.borrow_mut();
+            let mut cpu = rainier.cpu.borrow_mut();
 
             if let Some(requested_action) = &debugger.requested_action {
                 match requested_action {

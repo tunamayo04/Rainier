@@ -1,4 +1,3 @@
-mod oam;
 mod registers;
 
 use std::cell::RefCell;
@@ -100,9 +99,5 @@ impl Ppu {
         }
 
         true
-    }
-
-    fn fetch_tile_number(&self) -> u8 {
-
     }
 }

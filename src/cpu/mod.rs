@@ -96,7 +96,7 @@ impl Cpu {
         let mut instructions = vec![];
 
         let mmu = self.mmu.borrow();
-        let memory = mmu.dump_memory_region(MemoryRegion::RomBankZero);
+        let memory = mmu.to_vec();
 
         while pc < memory.len() {
             // Cartridge header

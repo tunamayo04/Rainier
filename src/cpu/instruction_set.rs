@@ -4,7 +4,7 @@ use std::mem::MaybeUninit;
 use std::rc::Rc;
 use crate::bit_utils::{carry_check_add_16bit, carry_check_add_8bit, carry_check_sub_8bit, concatenate_bytes, split_2bytes};
 use crate::cpu::registers::{Register, Registers};
-use crate::mmu::Mmu;
+use crate::mmu::{MemoryRegion, Mmu};
 
 type NullaryOperation = Rc<dyn Fn(&mut Mmu, &mut Registers)>;
 type UnaryOperation = Rc<dyn Fn(&mut Mmu, &mut Registers, u8)>;
@@ -75,6 +75,8 @@ impl InstructionSet {
             operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::dec_8bit(registers, Register::B) })) };
         instructions_8bit[0x06] = Instruction{ name: String::from("LD B, d8"), opcode: 0x06, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::ld_8bit(registers, Register::B, value) })) } ;
+        instructions_8bit[0x07] = Instruction{ name: String::from("RLCA"), opcode: 0x07, length: 1, cycles: 1,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::rlca(registers) })) } ;
         instructions_8bit[0x08] = Instruction{ name: String::from("LD (a16), SP"), opcode: 0x08, length: 3, cycles: 5,
             operation: Operation::Binary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers, lower_byte: u8, upper_byte: u8| {
                 let (lower_sp, higher_sp) = split_2bytes(registers.sp());
@@ -94,6 +96,8 @@ impl InstructionSet {
             operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::dec_8bit(registers, Register::C) })) };
         instructions_8bit[0x0E] = Instruction{ name: String::from("LD C, d8"), opcode: 0x0E, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::ld_8bit(registers, Register::C, value) })) } ;
+        instructions_8bit[0x0F] = Instruction{ name: String::from("RRCA"), opcode: 0x0F, length: 1, cycles: 1,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::rrca(registers) })) } ;
 
         instructions_8bit[0x11] = Instruction{ name: String::from("LD DE, d16"), opcode: 0x11, length: 3, cycles: 3,
             operation: Operation::Binary(Rc::new(|_, registers: &mut Registers, lower_byte: u8, higher_byte: u8| { Self::ld_16bit(registers, Register::DE, lower_byte, higher_byte) })) };
@@ -107,6 +111,8 @@ impl InstructionSet {
             operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::dec_8bit(registers, Register::D) })) };
         instructions_8bit[0x16] = Instruction{ name: String::from("LD D, d8"), opcode: 0x16, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::ld_8bit(registers, Register::D, value) })) } ;
+        instructions_8bit[0x17] = Instruction{ name: String::from("RLA"), opcode: 0x17, length: 1, cycles: 1,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::rla(registers) })) } ;
         instructions_8bit[0x18] = Instruction{ name: String::from("JR s8"), opcode: 0x18, length: 2, cycles: 3,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::jr(registers, value) })) } ;
         instructions_8bit[0x19] = Instruction{ name: String::from("ADD HL, DE"), opcode: 0x19, length: 1, cycles: 2,
@@ -121,6 +127,8 @@ impl InstructionSet {
             operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::dec_8bit(registers, Register::E) })) };
         instructions_8bit[0x1E] = Instruction{ name: String::from("LD E, d8"), opcode: 0x1E, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::ld_8bit(registers, Register::E, value) })) } ;
+        instructions_8bit[0x1F] = Instruction{ name: String::from("RRA"), opcode: 0x1F, length: 1, cycles: 1,
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::rra(registers) })) } ;
 
         instructions_8bit[0x20] = Instruction{ name: String::from("JR NZ, s8"), opcode: 0x20, length: 2, cycles: 3, // TODO: Check the variable cycles implementation
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, steps: u8| { if registers.zero_flag() == false { Self::jr(registers, steps) } })) };
@@ -233,7 +241,7 @@ impl InstructionSet {
                     }
                 } else {
                     if *source_name == "(HL)" {
-                        Operation::Nullary(Rc::new(move |mmu: &mut Mmu, registers: &mut Registers| { Self::ld_8bit(registers, destination_accessor, mmu.read_byte(source_accessor(registers) as usize).unwrap()) }))
+                        Operation::Nullary(Rc::new(move |mmu: &mut Mmu, registers: &mut Registers| { Self::ld_8bit(registers, destination_accessor, mmu.read_byte(registers.hl() as usize).unwrap()) }))
                     } else {
                         Operation::Nullary(Rc::new(move |_, registers: &mut Registers| { Self::ld_8bit(registers, destination_accessor, source_accessor(registers)) }))
                     }
@@ -634,10 +642,7 @@ impl InstructionSet {
         let new_value = original_value + 1;
         registers.set_8bit_register(register, new_value);
 
-        if new_value == 0 {
-            registers.set_zero_flag(true);
-        }
-
+        registers.set_zero_flag(new_value == 0);
         registers.set_subtraction_flag(false);
         registers.set_half_carry_flag(carry_check_add_8bit(original_value, 1));
     }
@@ -896,6 +901,49 @@ impl InstructionSet {
         registers.set_16bit_register(Register::PC, concatenate_bytes(value_lower, value_higher));
     }
 
+    // Rotate the contents of register A to the left, through the carry (CY) flag
+    // Flags: 0 0 0 A7
+    fn rla(registers: &mut Registers) {
+        let carry_bit = registers.a() & (1 << 7) != 0;
+        let new_value = (registers.a() << 1) | registers.carry_flag() as u8;
+        registers.set_a(new_value);
+
+        registers.clear_all_flags();
+        registers.set_carry_flag(carry_bit);
+    }
+
+    // Rotate the contents of register A to the right, through the carry (CY) flag
+    // Flags: 0 0 0 A0
+    fn rra(registers: &mut Registers) {
+        let carry_bit = registers.a() & 1 == 1;
+        let new_value = (registers.a() >> 1) | registers.carry_flag() as u8;
+        registers.set_a(new_value);
+
+        registers.clear_all_flags();
+        registers.set_carry_flag(carry_bit);
+    }
+
+    // Rotate the contents of register A to the left.
+    // Flags: 0 0 0 A7
+    fn rlca(registers: &mut Registers) {
+        let carry_bit = registers.a() & (1 << 7) != 0;
+        let new_value = (registers.a() << 1) | carry_bit as u8;
+        registers.set_a(new_value);
+
+        registers.clear_all_flags();
+        registers.set_carry_flag(carry_bit);
+    }
+
+    // Rotate the contents of register A to the right
+    // Flags: 0 0 0 A0
+    fn rrca(registers: &mut Registers) {
+        let carry_bit = registers.a() & 1 == 1;
+        let new_value = (registers.a() >> 1) | carry_bit as u8;
+        registers.set_a(new_value);
+
+        registers.clear_all_flags();
+        registers.set_carry_flag(carry_bit);
+    }
 
     // Tests the bit b of the 8-bit register r.
     // Flags: !rn 0 1 -

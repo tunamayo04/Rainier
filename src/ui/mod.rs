@@ -10,6 +10,7 @@ use ratatui::prelude::{Color, Style};
 use ratatui::style::Modifier;
 use ratatui::text::Span;
 use crate::cpu::instruction_set::DebugInstruction;
+use crate::mmu::MemoryRegion;
 use crate::Rainier;
 
 #[derive(Eq, PartialEq)]
@@ -33,7 +34,7 @@ pub struct App {
 
 impl App {
     pub fn new(rainier: Rc<RefCell<Rainier>>) -> Self {
-        let breakpoints: Vec<u16> = vec![0x157];
+        let breakpoints: Vec<u16> = vec![0x20f];
 
         Self {
             rainier,
@@ -97,7 +98,7 @@ impl App {
             .split(inner_area);
 
         // Left panel: maybe disassembly/logs later
-        self.draw_placeholder(frame, chunks[0]);
+        self.draw_disassembly(frame, chunks[0]);
 
         // Right panel: registers
         self.draw_registers(frame, chunks[1]);
@@ -114,7 +115,7 @@ impl App {
             Line::from(format!("HL: {:04X}    C: {}", cpu.registers.hl(), if cpu.registers.carry_flag() { "✓" } else { "X" })),
             Line::from(format!("SP: {:04X}", cpu.registers.sp())),
             Line::from(format!("PC: {:04X}", cpu.registers.pc())),
-            Line::from(format!("0xFF44: {:02X}", rainier.mmu.borrow().read_byte(0xFF44).unwrap()))];
+            Line::from(format!("0x4000: {:02X}", rainier.mmu.borrow().read_byte(0x4000).unwrap()))];
 
         let block = Block::default().title("Registers").borders(Borders::ALL);
         let registers = Paragraph::new(lines).block(block);
@@ -122,22 +123,26 @@ impl App {
         frame.render_widget(registers, area);
     }
 
-    fn draw_placeholder(&self, frame: &mut Frame, area: Rect) {
+    fn draw_disassembly(&self, frame: &mut Frame, area: Rect) {
         let rainier = self.rainier.borrow();
 
-        let lines = self.current_instruction_set
+        let starting_point = self.current_instruction_id - self.backward_instructions_count - self.scroll as usize;
+        let lines = &self.current_instruction_set[starting_point..starting_point+50];
+
+        let lines = lines
             .iter()
-            .skip(self.current_instruction_id - self.backward_instructions_count - self.scroll as usize)
             .enumerate()
             .map(|(i, instruction)| {
                 let breakpoint = if self.breakpoints.contains(&(instruction.address as u16)) { "🟠" } else { "  " };
                 let prefix = if i == self.backward_instructions_count + self.scroll as usize { "▶" } else { " " };
+                let memory_region = MemoryRegion::from_address(instruction.address).unwrap().as_str();
                 let first_operand = instruction.first_operand.map_or(String::from("  "), |operand| format!("{:02X}", operand));
                 let second_operand = instruction.second_operand.map_or(String::from("  "), |operand| format!("{:02X}", operand));
 
-                Line::from(format!("{} {} ROM0:{:04X} {:02X} {} {}        {}",
+                Line::from(format!("{} {} {}:{:04X} {:02X} {} {}        {}",
                     breakpoint,
                     prefix,
+                    memory_region,
                     instruction.address,
                     instruction.opcode,
                     first_operand,

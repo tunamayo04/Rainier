@@ -25,9 +25,11 @@ const ROM_BANK_SIZE: usize = 0x4000;
 const VIDEO_RAM_SIZE: usize = 0x2000;
 const EXTERNAL_RAM_SIZE: usize = 0x2000;
 const WORK_RAM_SIZE: usize = 0x2000;
-const SPRITE_ATTRIBUTION_TABLE_SIZE: usize = 0x100;
+const ECHO_RAM_SIZE: usize = 0x1E00;
+const SPRITE_ATTRIBUTION_TABLE_SIZE: usize = 0xA0;
+const UNUSABLE_MEMORY_SIZE: usize = 0x60;
 const IO_SIZE: usize = 0x80;
-const HIGH_RAM_SIZE: usize = 0x80;
+const HIGH_RAM_SIZE: usize = 0x7f;
 
 pub enum MemoryRegion {
     RomBankZero = 0x0000,
@@ -37,6 +39,7 @@ pub enum MemoryRegion {
     WorkRam = 0xC000,
     EchoRam = 0xE000,
     SpriteAttributionTable = 0xFE00,
+    Unusable = 0xFEA0,
     IO = 0xFF00,
     HighRam = 0xFF80,
     InterruptEnableRegister = 0xFFFF,
@@ -52,10 +55,27 @@ impl MemoryRegion {
             0xC000..=0xDFFF => Ok(WorkRam),
             0xE000..=0xFDFF => Ok(EchoRam),
             0xFE00..=0xFE9F => Ok(SpriteAttributionTable),
+            0xFEA0..=0xFEFF => Ok(Unusable),
             0xFF00..=0xFF7F => Ok(IO),
             0xFF80..=0xFFFE => Ok(HighRam),
             0xFFFF => Ok(InterruptEnableRegister),
-            _ => Err(anyhow::anyhow!("Illegal address"))
+            add => Err(anyhow::anyhow!("Illegal address {:X}", add))
+        }
+    }
+
+    pub fn as_str(&self) -> String {
+        match self {
+            RomBankZero => String::from("ROM0"),
+            RomBankSwap => String::from("ROM1"),
+            VideoRam => String::from("VRA0"),
+            ExternalRam => String::from("SRA0"),
+            WorkRam => String::from("WRA0"),
+            EchoRam => String::from("ECHO"),
+            SpriteAttributionTable => String::from("OAM"),
+            Unusable => String::from("----"),
+            IO => String::from("I/O "),
+            HighRam => String::from("HRAM"),
+            InterruptEnableRegister => String::from("IER ")
         }
     }
 }
@@ -67,9 +87,10 @@ pub struct Mmu {
     video_ram: [u8; VIDEO_RAM_SIZE],
     external_ram: [u8; EXTERNAL_RAM_SIZE],
     work_ram: [u8; WORK_RAM_SIZE],
-    echo_ram: [u8; WORK_RAM_SIZE],
+    echo_ram: [u8; ECHO_RAM_SIZE],
 
     sprite_attribution_table: [u8; SPRITE_ATTRIBUTION_TABLE_SIZE],
+    unusable: [u8; UNUSABLE_MEMORY_SIZE],
     io: [u8; IO_SIZE],
     high_ram: [u8; HIGH_RAM_SIZE],
 
@@ -88,9 +109,10 @@ impl Mmu {
             video_ram: [0; VIDEO_RAM_SIZE],
             external_ram: [0xFF; EXTERNAL_RAM_SIZE],
             work_ram,
-            echo_ram: work_ram,
+            echo_ram: [0; ECHO_RAM_SIZE],
 
             sprite_attribution_table: [0; SPRITE_ATTRIBUTION_TABLE_SIZE],
+            unusable: [0; UNUSABLE_MEMORY_SIZE],
             io: [0; IO_SIZE],
             high_ram: [0; HIGH_RAM_SIZE],
 
@@ -105,6 +127,7 @@ impl Mmu {
 
         self.cartridge_data = data;
         self.load_rom_bank(0);
+        self.load_rom_bank(1);
 
         Ok(())
     }
@@ -156,6 +179,10 @@ impl Mmu {
                 let relative_address = address - SpriteAttributionTable as usize;
                 self.sprite_attribution_table[relative_address]
             }
+            Unusable => {
+                let relative_address = address - Unusable as usize;
+                self.unusable[relative_address]
+            }
             IO => {
                 let relative_address = address - IO as usize;
                 self.io[relative_address]
@@ -199,6 +226,12 @@ impl Mmu {
             SpriteAttributionTable => {
                 let relative_address = address - SpriteAttributionTable as usize;
                 self.sprite_attribution_table[relative_address] = value;
+
+                Ok(())
+            }
+            Unusable => {
+                let relative_address = address - Unusable as usize;
+                self.unusable[relative_address] = value;
 
                 Ok(())
             }
@@ -252,6 +285,10 @@ impl Mmu {
                 let relative_address = address - SpriteAttributionTable as usize;
                 &mut self.sprite_attribution_table[relative_address]
             }
+            Unusable => {
+                let relative_address = address - Unusable as usize;
+                &mut self.unusable[relative_address]
+            }
             IO => {
                 let relative_address = address - IO as usize;
                 &mut self.io[relative_address]
@@ -275,9 +312,25 @@ impl Mmu {
             WorkRam => self.work_ram.to_vec(),
             EchoRam => self.echo_ram.to_vec(),
             SpriteAttributionTable => self.sprite_attribution_table.to_vec(),
+            Unusable => self.unusable.to_vec(),
             IO => self.io.to_vec(),
             HighRam => self.high_ram.to_vec(),
             InterruptEnableRegister => vec![self.interrupt_enable_register]
         }
+    }
+
+    pub fn to_vec(&self) -> Vec<u8> {
+        [
+            &self.rom_bank_zero[..],
+            &self.rom_bank_swap[..],
+            &self.video_ram[..],
+            &self.external_ram[..],
+            &self.work_ram[..],
+            &self.echo_ram[..],
+            &self.sprite_attribution_table[..],
+            &self.io[..],
+            &self.high_ram[..],
+            std::slice::from_ref(&self.interrupt_enable_register),
+        ].concat()
     }
 }
