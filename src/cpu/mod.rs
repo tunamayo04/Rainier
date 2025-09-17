@@ -6,6 +6,7 @@ use crate::cpu::registers::Registers;
 use crate::mmu::{MemoryRegion, Mmu};
 
 use anyhow::Result;
+use color_eyre::owo_colors::OwoColorize;
 use crate::cpu::instruction_set::{DebugInstruction, InstructionSet, Operation};
 use crate::cpu::interrupts::Interrupts;
 use crate::EmulationMode;
@@ -30,17 +31,26 @@ impl Cpu {
             registers: registers.clone(),
             interrupts: Interrupts::new(mmu.clone(), registers.clone()),
             instruction_set: InstructionSet::new(mmu.clone()),
-            file: OpenOptions::new().write(true).create(true).truncate(true).open("pc.txt").unwrap(),
+            file: OpenOptions::new().write(true).create(true).truncate(true).open("exec.log").unwrap(),
         }
     }
 
     pub fn emulation_loop(&mut self) -> Result<u8> {
         {
-            let mmu = self.mmu.borrow();
-            if mmu.sc() == 0x81 {
-                self.file.write_all(format!("{}", mmu.sb() as char).as_bytes())?;
-            }
+            let mut mmu = self.mmu.borrow_mut();
+            //if mmu.sc() == 0x81 {
+                //self.file.write_all(format!("{}", mmu.sb() as char).as_bytes())?;
+                //mmu.set_sc(0);
+            //}
         }
+
+        self.file.write_all(format!("A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X}\n",
+                                    self.registers.a(), self.registers.f(), self.registers.b(),
+                                    self.registers.c(), self.registers.d(), self.registers.e(),self.registers.h(), self.registers.l(),
+                                    self.registers.sp(), self. registers.pc(), self.mmu.borrow().read_byte(self.registers.pc() as usize).unwrap(),
+                                    self.mmu.borrow().read_byte(self.registers.pc() as usize + 1).unwrap(),
+                                    self.mmu.borrow().read_byte(self.registers.pc() as usize + 2).unwrap(),
+                                    self.mmu.borrow().read_byte(self.registers.pc() as usize + 3).unwrap()).as_bytes())?;
 
         self.run_next_opcode()?;
         self.interrupts.handle_interrupts();
@@ -49,7 +59,6 @@ impl Cpu {
     }
 
     pub fn run_next_opcode(&mut self) -> Result<()> {
-
         let mut opcode = self.read_at_program_counter()?;
         let mut instruction = self.instruction_set.fetch_instruction(opcode);
 
@@ -90,6 +99,7 @@ impl Cpu {
                 operation(&mut self.mmu.borrow_mut(), &mut self.registers, first_operand, second_operand);
             }
         }
+
 
         Ok(())
     }

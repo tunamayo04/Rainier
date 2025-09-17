@@ -150,6 +150,10 @@ impl Mmu {
     }
 
     pub fn read_byte(&self, address: usize) -> Result<u8> {
+        if address == 0xFF44 {
+            return Ok(0x90);
+        }
+
         Ok(match MemoryRegion::from_address(address)? {
             RomBankZero => {
                 let relative_address = address - RomBankZero as usize;
