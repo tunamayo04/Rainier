@@ -108,7 +108,7 @@ impl Mmu {
 
             video_ram: [0; VIDEO_RAM_SIZE],
             external_ram: [0xFF; EXTERNAL_RAM_SIZE],
-            work_ram,
+            work_ram: [0; WORK_RAM_SIZE],
             echo_ram: [0; ECHO_RAM_SIZE],
 
             sprite_attribution_table: [0; SPRITE_ATTRIBUTION_TABLE_SIZE],

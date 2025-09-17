@@ -41,7 +41,7 @@ impl Rainier {
     }
 
     // Set up the system as it would be after running the boot rom
-    pub fn boot(&mut self) -> Result<()> {
+    pub fn boot(&mut self, rom: &Path) -> Result<()> {
         let mut cpu = self.cpu.borrow_mut();
 
         let registers = &mut cpu.registers;
@@ -103,13 +103,13 @@ impl Rainier {
 
         mmu.write_byte(0xFF44, 0)?;
 
-        mmu.load_cartridge(Path::new("roms/cpu_instrs/individual/03-op sp,hl.gb"))
+        mmu.load_cartridge(rom)
     }
 }
 
 fn main() -> Result<()> {
     let rainier = Rc::new(RefCell::new(Rainier::new()?));
-    rainier.borrow_mut().boot()?;
+    rainier.borrow_mut().boot(Path::new("roms/cpu_instrs/individual/10-bit ops.gb"))?;
 
     let mut terminal = ratatui::init();
     let mut debugger = App::new(rainier.clone());
@@ -120,7 +120,6 @@ fn main() -> Result<()> {
     };
 
     if emulation_mode == EmulationMode::Normal {
-
         loop {
             let cycles = rainier.borrow_mut().cpu.borrow_mut().emulation_loop()?;
             //rainier.borrow_mut().ppu.emulation_loop(cycles)?;
@@ -160,4 +159,32 @@ fn main() -> Result<()> {
     ratatui::restore();
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::process::exit;
+    use super::*;
+
+    #[test]
+    fn cpu_instrs_03() {
+        let rainier = Rc::new(RefCell::new(Rainier::new().unwrap()));
+        rainier.borrow_mut().boot(Path::new("roms/cpu_instrs/individual/03-op sp,hl.gb")).unwrap();
+
+        loop {
+            let cycles = rainier.borrow_mut().cpu.borrow_mut().emulation_loop().unwrap();
+            //rainier.borrow_mut().ppu.emulation_loop(cycles)?;
+
+            let serial_log = rainier.borrow().cpu.borrow().serial_log.clone();
+            if serial_log.contains("Failed") {
+                println!("{}", serial_log.trim());
+                assert!(false);
+                break;
+            } else if serial_log.contains("Passed") {
+                println!("{}", serial_log.trim());
+                assert!(true);
+                break;
+            }
+        }
+    }
 }

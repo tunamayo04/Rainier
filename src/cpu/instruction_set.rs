@@ -510,8 +510,19 @@ impl InstructionSet {
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::call(mmu, registers, 0, 0x30) })) };
         instructions_8bit[0xF8] = Instruction{ name: String::from("LD HL, SP+s8"), opcode: 0xF8, length: 2, cycles: 3,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| {
-                let (lower_byte, upper_byte) = split_2bytes((registers.sp() as i16 + ((value as i8) as i16)) as u16);
-                Self::ld_16bit(registers, Register::HL, lower_byte, upper_byte);
+                let sp = registers.sp();
+                let offset = value as i8 as i16;
+                let result = (sp as i16).wrapping_add(offset) as u16;
+
+                // store result into HL
+                let (low, high) = split_2bytes(result);
+                Self::ld_16bit(registers, Register::HL, low, high);
+
+                // set flags
+                registers.set_zero_flag(false);
+                registers.set_subtraction_flag(false);
+                registers.set_half_carry_flag(((sp ^ (offset as u16) ^ result) & 0x10) != 0);
+                registers.set_carry_flag(((sp ^ (offset as u16) ^ result) & 0x100) != 0);
             })) };
         instructions_8bit[0xF9] = Instruction{ name: String::from("LD SP, HL"), opcode: 0xF9, length: 1, cycles: 2,
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| {
@@ -862,16 +873,20 @@ impl InstructionSet {
     // Add an 8 bit signed value to a register and store the result in that register
     // Flags: 0 0 16-bit 16-bit
     fn add_8bit_signed(registers: &mut Registers, register: Register, value: i8) {
-        let left_operand = registers.get_16bit_register(register);
-        let sum = (left_operand as i16 + value as i16) as u16;
+        let sp = registers.get_16bit_register(register);
+        let offset = value as i16;
+        let result = (sp as i16).wrapping_add(offset) as u16;
 
-        registers.set_16bit_register(register, sum);
+        registers.set_16bit_register(register, result);
 
-        registers.set_zero_flag(sum == 0);
+        registers.set_zero_flag(false); // always cleared
         registers.set_subtraction_flag(false);
-        registers.set_half_carry_flag(if value >= 0 { carry_check_add_16bit(left_operand, value as u16) } else { carry_check_sub_16bit(left_operand, value as u16) });
-        registers.set_carry_flag((left_operand as i16 + value as i16) > 0xFF);
 
+        let sp_low = sp & 0xFF;
+        let result_low = (sp_low as i16).wrapping_add(offset) as u16;
+
+        registers.set_half_carry_flag(((sp_low ^ (offset as u16) ^ result_low) & 0x10) != 0);
+        registers.set_carry_flag(((sp_low ^ (offset as u16) ^ result_low) & 0x100) != 0);
     }
 
     // Add two values along with the carry flag and store the content in register A
@@ -1140,7 +1155,7 @@ impl InstructionSet {
     // Set the given bit to 1 in value
     // Flags: - - - -
     fn set(value: &mut u8, bit_position: u8) {
-        *value ^= 1 << bit_position;
+        *value |= 1 << bit_position;
     }
 
     // Take the one's complement (i.e., flip all bits) of the contents of register A.

@@ -1,15 +1,17 @@
+use std::ascii::AsciiExt;
 use std::cell::RefCell;
 use std::fs::{File, OpenOptions};
-use std::io::{Seek, SeekFrom, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
+use std::ops::Add;
+use std::process;
 use std::rc::Rc;
 use crate::cpu::registers::Registers;
-use crate::mmu::{MemoryRegion, Mmu};
+use crate::mmu::{Mmu};
 
 use anyhow::Result;
 use color_eyre::owo_colors::OwoColorize;
 use crate::cpu::instruction_set::{DebugInstruction, InstructionSet, Operation};
 use crate::cpu::interrupts::Interrupts;
-use crate::EmulationMode;
 
 mod registers;
 mod interrupts;
@@ -20,7 +22,8 @@ pub struct Cpu {
     pub registers: Registers,
     interrupts: Interrupts,
     instruction_set: InstructionSet,
-    file: File,
+    log_file: File,
+    pub serial_log: String,
 }
 
 impl Cpu {
@@ -31,26 +34,13 @@ impl Cpu {
             registers: registers.clone(),
             interrupts: Interrupts::new(mmu.clone(), registers.clone()),
             instruction_set: InstructionSet::new(mmu.clone()),
-            file: OpenOptions::new().write(true).create(true).truncate(true).open("exec.log").unwrap(),
+            log_file: OpenOptions::new().write(true).create(true).truncate(true).open("exec.log").unwrap(),
+            serial_log: String::new()
         }
     }
 
     pub fn emulation_loop(&mut self) -> Result<u8> {
-        {
-            let mut mmu = self.mmu.borrow_mut();
-            //if mmu.sc() == 0x81 {
-                //self.file.write_all(format!("{}", mmu.sb() as char).as_bytes())?;
-                //mmu.set_sc(0);
-            //}
-        }
-
-        self.file.write_all(format!("A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X}\n",
-                                    self.registers.a(), self.registers.f(), self.registers.b(),
-                                    self.registers.c(), self.registers.d(), self.registers.e(),self.registers.h(), self.registers.l(),
-                                    self.registers.sp(), self. registers.pc(), self.mmu.borrow().read_byte(self.registers.pc() as usize).unwrap(),
-                                    self.mmu.borrow().read_byte(self.registers.pc() as usize + 1).unwrap(),
-                                    self.mmu.borrow().read_byte(self.registers.pc() as usize + 2).unwrap(),
-                                    self.mmu.borrow().read_byte(self.registers.pc() as usize + 3).unwrap()).as_bytes())?;
+        self.log_to_file()?;
 
         self.run_next_opcode()?;
         self.interrupts.handle_interrupts();
@@ -168,5 +158,29 @@ impl Cpu {
         }
 
         instructions
+    }
+
+    fn log_to_file(&mut self) -> Result<()> {
+        {
+            let mut mmu = self.mmu.borrow_mut();
+            if mmu.sc() == 0x81 {
+                let character = mmu.sb() as char;
+                //self.serial_log.write_all(format!("{}", character).as_bytes())?;
+                mmu.set_sc(0);
+
+                self.serial_log.push(character);
+
+            }
+        }
+
+        self.log_file.write_all(format!("A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X}\n",
+                                        self.registers.a(), self.registers.f(), self.registers.b(),
+                                        self.registers.c(), self.registers.d(), self.registers.e(),self.registers.h(), self.registers.l(),
+                                        self.registers.sp(), self. registers.pc(), self.mmu.borrow().read_byte(self.registers.pc() as usize).unwrap(),
+                                        self.mmu.borrow().read_byte(self.registers.pc() as usize + 1).unwrap(),
+                                        self.mmu.borrow().read_byte(self.registers.pc() as usize + 2).unwrap(),
+                                        self.mmu.borrow().read_byte(self.registers.pc() as usize + 3).unwrap()).as_bytes())?;
+
+        Ok(())
     }
 }
