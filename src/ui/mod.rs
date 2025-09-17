@@ -34,7 +34,7 @@ pub struct App {
 
 impl App {
     pub fn new(rainier: Rc<RefCell<Rainier>>) -> Self {
-        let breakpoints: Vec<u16> = vec![0x20f];
+        let breakpoints: Vec<u16> = vec![0xC22D];
 
         Self {
             rainier,
@@ -54,10 +54,8 @@ impl App {
             let rainier = self.rainier.borrow();
             let cpu = rainier.cpu.borrow();
 
-            if self.current_instruction_set.is_empty() {
-                let instructions = cpu.dump_instructions(cpu.registers.pc() as usize);
-                self.current_instruction_set = instructions;
-            }
+            let instructions = cpu.dump_instructions(cpu.registers.pc() as usize);
+            self.current_instruction_set = instructions;
 
             self.current_instruction_id = self.current_instruction_set.iter().position(|r| r.address == cpu.registers.pc() as usize).unwrap()
         }
@@ -115,7 +113,7 @@ impl App {
             Line::from(format!("HL: {:04X}    C: {}", cpu.registers.hl(), if cpu.registers.carry_flag() { "✓" } else { "X" })),
             Line::from(format!("SP: {:04X}", cpu.registers.sp())),
             Line::from(format!("PC: {:04X}", cpu.registers.pc())),
-            Line::from(format!("0x4000: {:02X}", rainier.mmu.borrow().read_byte(0x4000).unwrap()))];
+            Line::from(format!("0xC000: {:02X}", rainier.mmu.borrow().read_byte(0xC000).unwrap()))];
 
         let block = Block::default().title("Registers").borders(Borders::ALL);
         let registers = Paragraph::new(lines).block(block);
