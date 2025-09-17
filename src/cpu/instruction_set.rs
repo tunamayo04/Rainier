@@ -2,9 +2,9 @@ use std::cell::{RefCell};
 use std::{fmt, mem};
 use std::mem::MaybeUninit;
 use std::rc::Rc;
-use crate::bit_utils::{carry_check_add_16bit, carry_check_add_8bit, carry_check_sub_8bit, concatenate_bytes, split_2bytes};
+use crate::bit_utils::{carry_check_add_16bit, carry_check_add_8bit, carry_check_sub_16bit, carry_check_sub_8bit, concatenate_bytes, split_2bytes};
 use crate::cpu::registers::{Register, Registers};
-use crate::mmu::{MemoryRegion, Mmu};
+use crate::mmu::{Mmu};
 
 type NullaryOperation = Rc<dyn Fn(&mut Mmu, &mut Registers)>;
 type UnaryOperation = Rc<dyn Fn(&mut Mmu, &mut Registers, u8)>;
@@ -100,7 +100,7 @@ impl InstructionSet {
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::rrc(mmu, registers, |_, r| r.a_ref()); registers.set_zero_flag(false); })) } ;
 
         instructions_8bit[0x10] = Instruction{ name: String::from("STOP"), opcode: 0x10, length: 2, cycles: 1,
-            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { todo!() })) } ;
+            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| {})) } ;
         instructions_8bit[0x11] = Instruction{ name: String::from("LD DE, d16"), opcode: 0x11, length: 3, cycles: 3,
             operation: Operation::Binary(Rc::new(|_, registers: &mut Registers, lower_byte: u8, higher_byte: u8| { Self::ld_16bit(registers, Register::DE, lower_byte, higher_byte) })) };
         instructions_8bit[0x12] = Instruction{ name: String::from("LD (DE), A"), opcode: 0x12, length: 1, cycles: 2,
@@ -474,7 +474,7 @@ impl InstructionSet {
         instructions_8bit[0xE7] = Instruction{ name: String::from("RST 4"), opcode: 0xE7, length: 1, cycles: 4,
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::call(mmu, registers, 0, 0x20) })) };
         instructions_8bit[0xE8] = Instruction{ name: String::from("ADD SP, s8"), opcode: 0xE8, length: 1, cycles: 2,
-            operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::add_8bit_signed(registers, Register::HL, value as i8) })) } ;
+            operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::add_8bit_signed(registers, Register::SP, value as i8) })) } ;
         instructions_8bit[0xE9] = Instruction{ name: String::from("JP HL"), opcode: 0xE9, length: 1, cycles: 1,
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::jp(registers, registers.hl()) })) } ;
         instructions_8bit[0xEA] = Instruction{ name: String::from("LD (a16), A"), opcode: 0xEA, length: 3, cycles: 4,
@@ -514,7 +514,10 @@ impl InstructionSet {
                 Self::ld_16bit(registers, Register::HL, lower_byte, upper_byte);
             })) };
         instructions_8bit[0xF9] = Instruction{ name: String::from("LD SP, HL"), opcode: 0xF9, length: 1, cycles: 2,
-            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::ld_8bit(registers, Register::SP, mmu.read_byte(registers.hl() as usize).unwrap()) })) } ;
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| {
+                let (lower_byte, upper_byte) = split_2bytes(registers.hl());
+                Self::ld_16bit(registers, Register::SP, lower_byte, upper_byte);
+            })) } ;
         instructions_8bit[0xFA] = Instruction{ name: String::from("LD A, (a16)"), opcode: 0xFA, length: 3, cycles: 4,
             operation: Operation::Binary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers, lower_byte: u8, higher_byte: u8| {
                 let address = concatenate_bytes(lower_byte, higher_byte) as usize;
@@ -857,8 +860,19 @@ impl InstructionSet {
         registers.set_carry_flag((left_operand as u32 + value as u32) > 0xFFFF);
     }
 
+    // Add an 8 bit signed value to a register and store the result in that register
+    // Flags: 0 0 16-bit 16-bit
     fn add_8bit_signed(registers: &mut Registers, register: Register, value: i8) {
-        todo!()
+        let left_operand = registers.get_16bit_register(register);
+        let sum = (left_operand as i16 + value as i16) as u16;
+
+        registers.set_16bit_register(register, sum);
+
+        registers.set_zero_flag(sum == 0);
+        registers.set_subtraction_flag(false);
+        registers.set_half_carry_flag(if value >= 0 { carry_check_add_16bit(left_operand, value as u16) } else { carry_check_sub_16bit(left_operand, value as u16) });
+        registers.set_carry_flag((left_operand as i16 + value as i16) > 0xFF);
+
     }
 
     // Add two values along with the carry flag and store the content in register A

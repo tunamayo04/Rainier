@@ -1,4 +1,4 @@
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Register {
     A, B, C, D, E, H, L, AF, BC, DE, HL, SP, PC,
 }
@@ -39,7 +39,7 @@ impl Registers {
             Register::E => self.e(),
             Register::H => self.h(),
             Register::L => self.l(),
-            _ => panic!("Not an 8-bit register"),
+            r => panic!("Not an 8-bit register: {:?}", r),
         }
     }
 
@@ -52,7 +52,7 @@ impl Registers {
             Register::E => self.set_e(value),
             Register::H => self.set_h(value),
             Register::L => self.set_l(value),
-            _ => panic!("Not an 8-bit register"),
+            r => panic!("Not an 8-bit register: {:?}", r),
         }
     }
 

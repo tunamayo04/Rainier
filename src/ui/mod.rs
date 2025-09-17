@@ -34,7 +34,7 @@ pub struct App {
 
 impl App {
     pub fn new(rainier: Rc<RefCell<Rainier>>) -> Self {
-        let breakpoints: Vec<u16> = vec![0xC22D];
+        let breakpoints: Vec<u16> = vec![0xC6D6];
 
         Self {
             rainier,

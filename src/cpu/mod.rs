@@ -1,4 +1,6 @@
 use std::cell::RefCell;
+use std::fs::{File, OpenOptions};
+use std::io::{Seek, SeekFrom, Write};
 use std::rc::Rc;
 use crate::cpu::registers::Registers;
 use crate::mmu::{MemoryRegion, Mmu};
@@ -17,6 +19,7 @@ pub struct Cpu {
     pub registers: Registers,
     interrupts: Interrupts,
     instruction_set: InstructionSet,
+    file: File,
 }
 
 impl Cpu {
@@ -27,10 +30,18 @@ impl Cpu {
             registers: registers.clone(),
             interrupts: Interrupts::new(mmu.clone(), registers.clone()),
             instruction_set: InstructionSet::new(mmu.clone()),
+            file: OpenOptions::new().write(true).create(true).truncate(true).open("pc.txt").unwrap(),
         }
     }
 
     pub fn emulation_loop(&mut self) -> Result<u8> {
+        {
+            let mmu = self.mmu.borrow();
+            if mmu.sc() == 0x81 {
+                self.file.write_all(format!("{}", mmu.sb() as char).as_bytes())?;
+            }
+        }
+
         self.run_next_opcode()?;
         self.interrupts.handle_interrupts();
 
@@ -38,6 +49,7 @@ impl Cpu {
     }
 
     pub fn run_next_opcode(&mut self) -> Result<()> {
+
         let mut opcode = self.read_at_program_counter()?;
         let mut instruction = self.instruction_set.fetch_instruction(opcode);
 
