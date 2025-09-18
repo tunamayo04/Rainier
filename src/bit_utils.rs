@@ -1,17 +1,17 @@
-pub fn carry_check_add_8bit(a: u8, b: u8) -> bool {
-    (((a & 0xF) + (b & 0xF)) & 0x10) == 0x10
+pub fn half_carry_check_add_8bit(a: u8, b: u8) -> bool {
+    ((a & 0xF) + (b & 0xF)) > 0xF
 }
 
-pub fn carry_check_add_16bit(a: u16, b: u16) -> bool {
-    (((a & 0xFFF) + (b & 0xFFF)) & 0x1000) == 0x1000
+pub fn half_carry_check_add_16bit(a: u16, b: u16) -> bool {
+    ((a & 0xFFF) + (b & 0xFFF)) > 0xFFF
 }
 
-pub fn carry_check_sub_8bit(a: u8, b: u8) -> bool {
-    (((a & 0xF) - (b & 0xF)) & 0x10) == 0x10
+pub fn half_carry_check_sub_8bit(a: u8, b: u8) -> bool {
+    (a & 0xF) < (b & 0xF)
 }
 
-pub fn carry_check_sub_16bit(a: u16, b: u16) -> bool {
-    (((a & 0xFFF) - (b & 0xFFF)) & 0x1000) == 0x1000
+pub fn half_carry_check_sub_16bit(a: u16, b: u16) -> bool {
+    (a & 0xFFF) < (b & 0xFFF)
 }
 
 pub fn concatenate_bytes(lower_byte: u8, higher_byte: u8) -> u16 {

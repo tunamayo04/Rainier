@@ -163,13 +163,11 @@ fn main() -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use std::process::exit;
     use super::*;
 
-    #[test]
-    fn cpu_instrs_03() {
+    fn run_test_rom(rom: &str) {
         let rainier = Rc::new(RefCell::new(Rainier::new().unwrap()));
-        rainier.borrow_mut().boot(Path::new("roms/cpu_instrs/individual/03-op sp,hl.gb")).unwrap();
+        rainier.borrow_mut().boot(Path::new(rom)).unwrap();
 
         loop {
             let cycles = rainier.borrow_mut().cpu.borrow_mut().emulation_loop().unwrap();
@@ -186,5 +184,60 @@ mod tests {
                 break;
             }
         }
+    }
+
+    #[test]
+    fn cpu_instrs_01() {
+        run_test_rom("roms/cpu_instrs/individual/01-special.gb");
+    }
+
+    #[test]
+    fn cpu_instrs_02() {
+        run_test_rom("roms/cpu_instrs/individual/02-interrupts.gb");
+    }
+
+    #[test]
+    fn cpu_instrs_03() {
+        run_test_rom("roms/cpu_instrs/individual/03-op sp,hl.gb");
+    }
+
+    #[test]
+    fn cpu_instrs_04() {
+        run_test_rom("roms/cpu_instrs/individual/04-op r,imm.gb");
+    }
+
+    #[test]
+    fn cpu_instrs_05() {
+        run_test_rom("roms/cpu_instrs/individual/05-op rp.gb");
+    }
+
+    #[test]
+    fn cpu_instrs_06() {
+        run_test_rom("roms/cpu_instrs/individual/06-ld r,r.gb");
+    }
+
+    #[test]
+    fn cpu_instrs_07() {
+        run_test_rom("roms/cpu_instrs/individual/07-jr,jp,call,ret,rst.gb");
+    }
+
+    #[test]
+    fn cpu_instrs_08() {
+        run_test_rom("roms/cpu_instrs/individual/08-misc instrs.gb");
+    }
+
+    #[test]
+    fn cpu_instrs_09() {
+        run_test_rom("roms/cpu_instrs/individual/09-op r,r.gb");
+    }
+
+    #[test]
+    fn cpu_instrs_10() {
+        run_test_rom("roms/cpu_instrs/individual/10-bit ops.gb");
+    }
+
+    #[test]
+    fn cpu_instrs_11() {
+        run_test_rom("roms/cpu_instrs/individual/11-op a,(hl).gb");
     }
 }

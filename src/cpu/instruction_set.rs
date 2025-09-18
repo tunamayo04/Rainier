@@ -2,7 +2,7 @@ use std::cell::{RefCell};
 use std::{fmt, mem};
 use std::mem::MaybeUninit;
 use std::rc::Rc;
-use crate::bit_utils::{carry_check_add_16bit, carry_check_add_8bit, carry_check_sub_16bit, carry_check_sub_8bit, concatenate_bytes, split_2bytes};
+use crate::bit_utils::{concatenate_bytes, half_carry_check_add_16bit, half_carry_check_add_8bit, half_carry_check_sub_8bit, split_2bytes};
 use crate::cpu::registers::{Register, Registers};
 use crate::mmu::{Mmu};
 
@@ -158,7 +158,7 @@ impl InstructionSet {
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| {
                 Self::ld_8bit(registers, Register::A, mmu.read_byte(registers.hl() as usize).unwrap());
                 registers.set_hl(registers.hl() + 1)})) };
-        instructions_8bit[0x3B] = Instruction{ name: String::from("DEC HL"), opcode: 0x3B, length: 1, cycles: 2,
+        instructions_8bit[0x2B] = Instruction{ name: String::from("DEC HL"), opcode: 0x3B, length: 1, cycles: 2,
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::dec_16bit(registers, Register::HL) })) };
         instructions_8bit[0x2C] = Instruction{ name: String::from("INC L"), opcode: 0x2C, length: 1, cycles: 1,
             operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { Self::inc_8bit(registers, Register::L) })) };
@@ -445,7 +445,7 @@ impl InstructionSet {
         instructions_8bit[0xD8] = Instruction{ name: String::from("RET C"), opcode: 0xD8, length: 1, cycles: 5, // TODO: Handle variable cycles
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { if registers.carry_flag() { Self::ret(mmu, registers) } })) };
         instructions_8bit[0xD9] = Instruction{ name: String::from("RETI"), opcode: 0xD9, length: 1, cycles: 4,
-            operation: Operation::Nullary(Rc::new(|_, registers: &mut Registers| { todo!() })) } ;
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::reti(mmu, registers) })) } ;
         instructions_8bit[0xDA] = Instruction{ name: String::from("JP C, a16"), opcode: 0xDA, length: 3, cycles: 4,
             operation: Operation::Binary(Rc::new(|_, registers: &mut Registers, lower_bits: u8, upper_bits: u8| { if registers.carry_flag() { Self::jmp(registers, lower_bits, upper_bits) } })) };
         instructions_8bit[0xDC] = Instruction{ name: String::from("CALL C, a16"), opcode: 0xDC, length: 3, cycles: 6,
@@ -782,7 +782,7 @@ impl InstructionSet {
 
         registers.set_zero_flag(new_value == 0);
         registers.set_subtraction_flag(false);
-        registers.set_half_carry_flag(carry_check_add_8bit(original_value, 1));
+        registers.set_half_carry_flag(half_carry_check_add_8bit(original_value, 1));
     }
 
     // Decrement the contents of a register by 1
@@ -794,7 +794,7 @@ impl InstructionSet {
 
         registers.set_zero_flag(new_value == 0);
         registers.set_subtraction_flag(true);
-        registers.set_half_carry_flag(carry_check_sub_8bit(original_value, 1));
+        registers.set_half_carry_flag(half_carry_check_sub_8bit(original_value, 1));
     }
 
     // Increment the contents of a register pair by 1
@@ -814,7 +814,7 @@ impl InstructionSet {
 
         registers.set_zero_flag(new_value == 0);
         registers.set_subtraction_flag(false);
-        registers.set_half_carry_flag(carry_check_add_8bit(original_value, 1));
+        registers.set_half_carry_flag(half_carry_check_add_8bit(original_value, 1));
     }
 
     // Decrements the contents of a register pair by 1
@@ -834,7 +834,7 @@ impl InstructionSet {
 
         registers.set_zero_flag(new_value == 0);
         registers.set_subtraction_flag(true);
-        registers.set_half_carry_flag(carry_check_sub_8bit(original_value, 1));
+        registers.set_half_carry_flag(half_carry_check_sub_8bit(original_value, 1));
     }
 
     // Loads the value of address in the program counter
@@ -853,7 +853,7 @@ impl InstructionSet {
 
         registers.set_zero_flag(sum == 0);
         registers.set_subtraction_flag(false);
-        registers.set_half_carry_flag(carry_check_add_8bit(left_operator, right_operator));
+        registers.set_half_carry_flag(half_carry_check_add_8bit(left_operator, right_operator));
         registers.set_carry_flag((left_operator as u16 + right_operator as u16) > 0xFF);
     }
 
@@ -866,7 +866,7 @@ impl InstructionSet {
         registers.set_16bit_register(register, sum);
 
         registers.set_subtraction_flag(false);
-        registers.set_half_carry_flag(carry_check_add_16bit(left_operand, value));
+        registers.set_half_carry_flag(half_carry_check_add_16bit(left_operand, value));
         registers.set_carry_flag((left_operand as u32 + value as u32) > 0xFFFF);
     }
 
@@ -898,7 +898,9 @@ impl InstructionSet {
 
         registers.set_zero_flag(sum == 0);
         registers.set_subtraction_flag(false);
-        registers.set_half_carry_flag(carry_check_add_8bit(left_operator, right_operator + registers.carry_flag() as u8));
+        registers.set_half_carry_flag(
+            ((left_operator & 0xF) + (right_operator & 0xF) + registers.carry_flag() as u8) > 0xF
+        );
         registers.set_carry_flag((left_operator as u16 + right_operator as u16 + registers.carry_flag() as u16) > 0xFF);
     }
 
@@ -911,21 +913,22 @@ impl InstructionSet {
 
         registers.set_zero_flag(difference == 0);
         registers.set_subtraction_flag(true);
-        registers.set_half_carry_flag(carry_check_sub_8bit(left_operator, right_operator));
+        registers.set_half_carry_flag(half_carry_check_sub_8bit(left_operator, right_operator));
         registers.set_carry_flag((left_operator as i16 - right_operator as i16) < 0);
     }
 
     // Subtract two values and the carry flag and store the result in register A
     // Flags: Z 1 8-bit 8-bit
     fn sbc(registers: &mut Registers, left_operator: u8, right_operator: u8) {
-        let difference = left_operator - right_operator - registers.carry_flag() as u8;
+        let carry = registers.carry_flag() as u8;
+        let difference = left_operator.wrapping_sub(right_operator).wrapping_sub(carry);
 
         registers.set_8bit_register(Register::A, difference);
 
         registers.set_zero_flag(difference == 0);
         registers.set_subtraction_flag(true);
-        registers.set_half_carry_flag(carry_check_sub_8bit(left_operator, right_operator));
-        registers.set_carry_flag((left_operator as i16 - right_operator as i16) < 0);
+        registers.set_half_carry_flag((left_operator & 0xF) < ((right_operator & 0xF) + carry));
+        registers.set_carry_flag((left_operator as u16) < (right_operator as u16 + carry as u16));
     }
 
     // Take the logical AND for each bit of the operands and store the result in register A
@@ -971,7 +974,7 @@ impl InstructionSet {
 
         registers.set_zero_flag(difference == 0);
         registers.set_subtraction_flag(true);
-        registers.set_half_carry_flag(carry_check_sub_8bit(left_operator, right_operator));
+        registers.set_half_carry_flag(half_carry_check_sub_8bit(left_operator, right_operator));
         registers.set_carry_flag((left_operator as i16 - right_operator as i16) < 0);
     }
 
@@ -1051,6 +1054,13 @@ impl InstructionSet {
         registers.increment_sp();
 
         registers.set_16bit_register(Register::PC, concatenate_bytes(value_lower, value_higher));
+    }
+
+    // Unconditional return from a function. Also enables interrupts by setting IME=1.
+    // Flags: - - - -
+    fn reti(mmu: &mut Mmu, registers: &mut Registers) {
+        Self::ret(mmu, registers);
+        mmu.set_ime(1);
     }
 
     // Rotate the contents of register A to the left, through the carry (CY) flag
