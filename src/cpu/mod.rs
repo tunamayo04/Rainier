@@ -1,21 +1,22 @@
 use std::ascii::AsciiExt;
 use std::cell::RefCell;
 use std::fs::{File, OpenOptions};
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{Read, Seek, Write};
 use std::ops::Add;
-use std::process;
 use std::rc::Rc;
 use crate::cpu::registers::Registers;
 use crate::mmu::{Mmu};
 
 use anyhow::Result;
 use color_eyre::owo_colors::OwoColorize;
+use crate::cpu::clock::Clock;
 use crate::cpu::instruction_set::{DebugInstruction, InstructionSet, Operation};
 use crate::cpu::interrupts::Interrupts;
 
 mod registers;
 mod interrupts;
 pub mod instruction_set;
+mod clock;
 
 pub struct Cpu {
     mmu: Rc<RefCell<Mmu>>,
@@ -24,7 +25,8 @@ pub struct Cpu {
     instruction_set: InstructionSet,
     log_file: File,
     pub serial_log: String,
-    halt: bool
+    halt: bool,
+    clock: Clock
 }
 
 impl Cpu {
@@ -38,15 +40,17 @@ impl Cpu {
             log_file: OpenOptions::new().write(true).create(true).truncate(true).open("exec.log").unwrap(),
             serial_log: String::new(),
             halt: false,
+            clock: Clock::new(mmu.clone()),
         }
     }
 
     pub fn emulation_loop(&mut self) -> Result<u8> {
         self.log_to_file()?;
 
-        // if !self.halt {
-            self.run_next_opcode()?;
-        // }
+        if !self.halt {
+            let cycles = self.run_next_opcode()?;
+            self.clock.update_clock_cycles(cycles);
+        }
 
         let interrupt_requested = self.interrupts.handle_interrupts();
         if interrupt_requested {
@@ -56,14 +60,14 @@ impl Cpu {
         Ok(1)
     }
 
-    pub fn run_next_opcode(&mut self) -> Result<()> {
+    pub fn run_next_opcode(&mut self) -> Result<usize> {
         let mut opcode = self.read_at_program_counter()?;
         let mut instruction = self.instruction_set.fetch_instruction(opcode);
 
         // HALT
         if opcode == 0x76 {
             self.halt = true;
-            return Ok(())
+            return Ok(1)
         }
 
         // 16-bit opcodes
@@ -104,7 +108,7 @@ impl Cpu {
         }
 
 
-        Ok(())
+        Ok(instruction.cycles)
     }
 
     // Reads the value in memory pointed at by PC and increments PC
