@@ -24,6 +24,7 @@ pub struct Cpu {
     instruction_set: InstructionSet,
     log_file: File,
     pub serial_log: String,
+    halt: bool
 }
 
 impl Cpu {
@@ -35,15 +36,22 @@ impl Cpu {
             interrupts: Interrupts::new(mmu.clone(), registers.clone()),
             instruction_set: InstructionSet::new(mmu.clone()),
             log_file: OpenOptions::new().write(true).create(true).truncate(true).open("exec.log").unwrap(),
-            serial_log: String::new()
+            serial_log: String::new(),
+            halt: false,
         }
     }
 
     pub fn emulation_loop(&mut self) -> Result<u8> {
         self.log_to_file()?;
 
-        self.run_next_opcode()?;
-        self.interrupts.handle_interrupts();
+        // if !self.halt {
+            self.run_next_opcode()?;
+        // }
+
+        let interrupt_requested = self.interrupts.handle_interrupts();
+        if interrupt_requested {
+            self.halt = false;
+        }
 
         Ok(1)
     }
@@ -52,6 +60,11 @@ impl Cpu {
         let mut opcode = self.read_at_program_counter()?;
         let mut instruction = self.instruction_set.fetch_instruction(opcode);
 
+        // HALT
+        if opcode == 0x76 {
+            self.halt = true;
+            return Ok(())
+        }
 
         // 16-bit opcodes
         let is_16bit_opcode = if opcode == 0xCB {

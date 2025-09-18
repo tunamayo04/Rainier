@@ -38,19 +38,25 @@ impl Interrupts {
         self.mmu.borrow().iflag()
     }
 
-    pub fn handle_interrupts(&mut self) {
-        if !self.get_interrupt_master_enable() || self.get_interrupt_enable_register() == 0 || self.get_interrupt_flag_register() == 0 { return; }
+    pub fn handle_interrupts(&mut self) -> bool {
+        // No interrupt requested
+        if self.get_interrupt_enable_register() == 0 || self.get_interrupt_flag_register() == 0 { return false; }
 
         for interrupt in Interrupt::VALUES {
             if self.get_interrupt_enable_register() & (1 << interrupt as u8) != 0 && self.get_interrupt_flag_register() & (1 << interrupt as u8) != 0 {
-                match interrupt {
-                    Interrupt::VBlank => self.registers.set_pc(0x40),
-                    Interrupt::LCD => self.registers.set_pc(0x48),
-                    Interrupt::Timer => self.registers.set_pc(0x50),
-                    Interrupt::Serial => self.registers.set_pc(0x58),
-                    Interrupt::Joypad => self.registers.set_pc(0x60),
+                if self.get_interrupt_master_enable() {
+                    match interrupt {
+                        Interrupt::VBlank => self.registers.set_pc(0x40),
+                        Interrupt::LCD => self.registers.set_pc(0x48),
+                        Interrupt::Timer => self.registers.set_pc(0x50),
+                        Interrupt::Serial => self.registers.set_pc(0x58),
+                        Interrupt::Joypad => self.registers.set_pc(0x60),
+                    }
                 }
+                return true;
             }
         }
+
+        return false;
     }
 }
