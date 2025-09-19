@@ -34,7 +34,7 @@ pub struct App {
 
 impl App {
     pub fn new(rainier: Rc<RefCell<Rainier>>) -> Self {
-        let breakpoints: Vec<u16> = vec![0xC6D6];
+        let breakpoints: Vec<u16> = vec![0xc262];
 
         Self {
             rainier,
@@ -105,6 +105,7 @@ impl App {
     fn draw_registers(&self, frame: &mut Frame, area: Rect) {
         let rainier = self.rainier.borrow();
         let cpu = rainier.cpu.borrow();
+        let sp = cpu.registers.sp();
 
         let lines: Vec<Line> = vec![
             Line::from(format!("AF: {:04X}    Z: {}", cpu.registers.af(), if cpu.registers.zero_flag() { "✓" } else { "X" })),
@@ -113,7 +114,11 @@ impl App {
             Line::from(format!("HL: {:04X}    C: {}", cpu.registers.hl(), if cpu.registers.carry_flag() { "✓" } else { "X" })),
             Line::from(format!("SP: {:04X}", cpu.registers.sp())),
             Line::from(format!("PC: {:04X}", cpu.registers.pc())),
-            Line::from(format!("0xC000: {:02X}", rainier.mmu.borrow().read_byte(0xC000).unwrap()))];
+            Line::from(format!("0x{:04X}: {:02X}{:02X}", sp, rainier.mmu.borrow().read_byte(sp as usize).unwrap(), rainier.mmu.borrow().read_byte((sp + 1) as usize).unwrap())),
+            Line::from(format!("0x{:04X}: {:02X}{:02X}", sp - 2, rainier.mmu.borrow().read_byte((sp - 2) as usize).unwrap(), rainier.mmu.borrow().read_byte((sp - 1) as usize).unwrap())),
+            Line::from(format!("0x{:04X}: {:02X}{:02X}", sp - 4, rainier.mmu.borrow().read_byte((sp - 4) as usize).unwrap(), rainier.mmu.borrow().read_byte((sp - 3) as usize).unwrap())),
+            Line::from(format!("0x{:04X}: {:02X}{:02X}", sp - 6, rainier.mmu.borrow().read_byte((sp - 6) as usize).unwrap(), rainier.mmu.borrow().read_byte((sp - 5) as usize).unwrap())),
+            Line::from(format!("0x{:04X}: {:02X}{:02X}", sp - 8, rainier.mmu.borrow().read_byte((sp - 8) as usize).unwrap(), rainier.mmu.borrow().read_byte((sp - 7) as usize).unwrap()))];
 
         let block = Block::default().title("Registers").borders(Borders::ALL);
         let registers = Paragraph::new(lines).block(block);

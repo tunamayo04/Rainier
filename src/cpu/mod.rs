@@ -47,10 +47,10 @@ impl Cpu {
     pub fn emulation_loop(&mut self) -> Result<u8> {
         self.log_to_file()?;
 
-        if !self.halt {
+        // if !self.halt {
             let cycles = self.run_next_opcode()?;
             self.clock.update_clock_cycles(cycles);
-        }
+        // }
 
         let interrupt_requested = self.interrupts.handle_interrupts();
         if interrupt_requested {
@@ -67,6 +67,7 @@ impl Cpu {
         // HALT
         if opcode == 0x76 {
             self.halt = true;
+            // println!("HALTED at {:x}", self.registers.pc() - 1);
             return Ok(1)
         }
 

@@ -503,7 +503,7 @@ impl InstructionSet {
         instructions_8bit[0xF3] = Instruction{ name: String::from("DI"), opcode: 0xF3, length: 1, cycles: 1,
             operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, _| { mmu.set_ime(0) })) };
         instructions_8bit[0xF5] = Instruction{ name: String::from("PUSH AF"), opcode: 0xF5, length: 1, cycles: 4,
-            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::push(mmu, registers, registers.af()) })) };
+            operation: Operation::Nullary(Rc::new(|mmu: &mut Mmu, registers: &mut Registers| { Self::push(mmu, registers, registers.af() & 0xFFF0) })) };
         instructions_8bit[0xF6] = Instruction{ name: String::from("OR A, d8"), opcode: 0xF6, length: 2, cycles: 2,
             operation: Operation::Unary(Rc::new(|_, registers: &mut Registers, value: u8| { Self::or(registers, registers.a(), value) })) };
         instructions_8bit[0xF7] = Instruction{ name: String::from("RST 6"), opcode: 0xF7, length: 1, cycles: 4,
@@ -1029,20 +1029,25 @@ impl InstructionSet {
         let (value_lower, value_higher) = split_2bytes(value);
 
         registers.decrement_sp();
-        mmu.write_byte(registers.sp() as usize, value_higher).unwrap();
-        registers.decrement_sp();
         mmu.write_byte(registers.sp() as usize, value_lower).unwrap();
+        registers.decrement_sp();
+        mmu.write_byte(registers.sp() as usize, value_higher).unwrap();
     }
 
     // Pop a value from the stack and store it in the given register
     // Flags: - - - -
     fn pop(mmu: &mut Mmu, registers: &mut Registers, register: Register) {
-        let value_lower = mmu.read_byte(registers.sp() as usize).unwrap();
-        registers.increment_sp();
         let value_higher = mmu.read_byte(registers.sp() as usize).unwrap();
         registers.increment_sp();
+        let value_lower = mmu.read_byte(registers.sp() as usize).unwrap();
+        registers.increment_sp();
 
-        registers.set_16bit_register(register, concatenate_bytes(value_lower, value_higher))
+        let mut value = concatenate_bytes(value_lower, value_higher);
+        if register == Register::AF {
+            value &= 0xFFF0;
+        }
+
+        registers.set_16bit_register(register, value)
     }
 
     // Pop from the memory stack the program counter PC value pushed when the subroutine was called, returning control to the source program.
@@ -1053,7 +1058,7 @@ impl InstructionSet {
         let value_higher = mmu.read_byte(registers.sp() as usize).unwrap();
         registers.increment_sp();
 
-        registers.set_16bit_register(Register::PC, concatenate_bytes(value_lower, value_higher));
+        registers.set_16bit_register(Register::PC, concatenate_bytes(value_higher, value_lower));
     }
 
     // Unconditional return from a function. Also enables interrupts by setting IME=1.

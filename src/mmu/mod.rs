@@ -203,9 +203,9 @@ impl Mmu {
 
     pub fn write_byte(&mut self, address: usize, value: u8) -> Result<()> {
         match MemoryRegion::from_address(address)? {
-            RomBankZero | RomBankSwap => {
-                Err(anyhow::anyhow!("Attempted to write into illegal memory region ROM"))
-            }
+            RomBankZero | RomBankSwap => { Ok(()) },
+                // Err(anyhow::anyhow!("Attempted to write into illegal memory region ROM"))
+            // },
             VideoRam => {
                 let relative_address = address - VideoRam as usize;
                 self.video_ram[relative_address] = value;

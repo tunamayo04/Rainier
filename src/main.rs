@@ -109,7 +109,7 @@ impl Rainier {
 
 fn main() -> Result<()> {
     let rainier = Rc::new(RefCell::new(Rainier::new()?));
-    rainier.borrow_mut().boot(Path::new("roms/cpu_instrs/individual/10-bit ops.gb"))?;
+    rainier.borrow_mut().boot(Path::new("roms/cpu_instrs/individual/08-misc instrs.gb"))?;
 
     let mut terminal = ratatui::init();
     let mut debugger = App::new(rainier.clone());
@@ -127,7 +127,6 @@ fn main() -> Result<()> {
     }
     else {
         execute!(stdout(), EnableMouseCapture)?;
-
 
         while !debugger.exit {
             debugger.run(&mut terminal)?;
@@ -154,9 +153,9 @@ fn main() -> Result<()> {
                 }
             }
         }
-    }
 
-    ratatui::restore();
+        ratatui::restore();
+    }
 
     Ok(())
 }
