@@ -196,8 +196,5 @@ impl Mmu {
     // PCM output (read-only)
     pub fn pcm12(&self) -> u8 { self.read_byte(0xFF76).unwrap() }
 
-    pub fn pcm34(&self) -> u8 { self.read_byte(0xFF77).unwrap() }
-    
-    pub fn ime(&self) -> u8 { self.read_byte(0xFFFF).unwrap() }
-    pub fn set_ime(&mut self, val: u8) { self.write_byte(0xFF78, val).unwrap() }
+    pub fn pcm34(&self) -> u8 { self.read_byte(0xFF76).unwrap() }
 }

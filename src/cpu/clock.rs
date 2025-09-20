@@ -16,8 +16,8 @@ impl Clock {
         }
     }
 
-    pub fn update_clock_cycles(&mut self, count: usize) {
-        self.cycles += count;
+    pub fn update_clock_cycles(&mut self, count: u8) {
+        self.cycles += count as usize;
 
         let tac = self.mmu.borrow().tac();
         let clock_enable = tac & (1 << 2) != 0;

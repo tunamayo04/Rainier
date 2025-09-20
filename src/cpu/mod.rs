@@ -37,7 +37,7 @@ impl Cpu {
         Cpu {
             mmu: mmu.clone(),
             registers: registers.clone(),
-            interrupts: Interrupts::new(mmu.clone(), registers.clone()),
+            interrupts: Interrupts::new(mmu.clone()),
             instruction_set: InstructionSet::new(mmu.clone()),
             log_file: OpenOptions::new().write(true).create(true).truncate(true).open("exec.log").unwrap(),
             serial_log: String::new(),
@@ -50,42 +50,33 @@ impl Cpu {
 
     pub fn emulation_loop(&mut self) -> Result<u8> {
         self.log_serial();
-        // self.log_to_file()?;
+        self.log_to_file()?;
 
-        // if !self.halt {
-            let cycles = self.run_next_opcode()?;
-            self.clock.update_clock_cycles(cycles);
-        // }
 
-        let interrupt_requested = self.interrupts.handle_interrupts();
+
+        let interrupt_requested = self.interrupts.handle_interrupts(&mut self.registers);
         if interrupt_requested {
             self.halt = false;
         }
 
+        // if !self.halt {
+        let cycles = self.run_next_opcode()?;
+        self.clock.update_clock_cycles(cycles);
+        // }
+
         Ok(1)
     }
 
-    pub fn run_next_opcode(&mut self) -> Result<usize> {
+    pub fn run_next_opcode(&mut self) -> Result<u8> {
         let mut opcode = self.read_at_program_counter()?;
         let mut instruction = self.instruction_set.fetch_instruction(opcode);
 
         if self.ei {
-            self.mmu.borrow_mut().set_ime(1);
+            self.registers.set_ime(true);
             self.ei = false;
         }
 
-        // HALT
-        if opcode == 0x76 {
-            self.halt = true;
-            // println!("HALTED at {:x}", self.registers.pc() - 1);
-            return Ok(1)
-        }
 
-        // EI
-        if opcode == 0xFB {
-            self.ei = true;
-            return Ok(1);
-        }
 
         // 16-bit opcodes
         let is_16bit_opcode = if opcode == 0xCB {
@@ -97,7 +88,7 @@ impl Cpu {
            false
         };
 
-        match instruction.operation {
+        let cycles = match instruction.operation {
             Operation::None => {
                 if instruction.name == "" {
                     if is_16bit_opcode {
@@ -107,26 +98,40 @@ impl Cpu {
                         panic!("Unimplemented opcode {:#X} at {:#X}", opcode, self.registers.pc());
                     }
                 }
+
+                // NOP
+                1
             }
             Operation::Nullary(ref operation) => {
-                operation(&mut self.mmu.borrow_mut(), &mut self.registers);
+                operation(&mut self.mmu.borrow_mut(), &mut self.registers)
             }
             Operation::Unary(ref operation) => {
                 let operand = self.read_at_program_counter()?;
 
-                operation(&mut self.mmu.borrow_mut(), &mut self.registers, operand);
+                operation(&mut self.mmu.borrow_mut(), &mut self.registers, operand)
             }
             Operation::Binary(ref operation) => {
                 let first_operand = self.read_at_program_counter()?;
                 let second_operand = self.read_at_program_counter()?;
 
-                operation(&mut self.mmu.borrow_mut(), &mut self.registers, first_operand, second_operand);
+                operation(&mut self.mmu.borrow_mut(), &mut self.registers, first_operand, second_operand)
             }
+        };
+
+        // HALT
+        if opcode == 0x76 {
+            self.halt = true;
+            // println!("HALTED at {:x}", self.registers.pc() - 1);
+        }
+
+        // EI
+        if opcode == 0xFB {
+            self.ei = true;
         }
 
         self.i += 1;
 
-        Ok(instruction.cycles)
+        Ok(cycles)
     }
 
     // Reads the value in memory pointed at by PC and increments PC

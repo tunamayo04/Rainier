@@ -15,6 +15,7 @@ pub struct Registers {
     l: u8,
     sp: u16,
     pc: u16,
+    ime: bool,
 }
 
 #[repr(u8)]
@@ -147,6 +148,10 @@ impl Registers {
     pub fn pc(&self) -> u16 { self.pc }
     pub fn set_pc(&mut self, val: u16) { self.pc = val }
     pub fn increment_pc(&mut self) { self.pc += 1 }
+
+
+    pub fn ime(&self) -> bool { self.ime }
+    pub fn set_ime(&mut self, val: bool) { self.ime = val }
 
     // --- Flag getters/setters ---
     pub fn get_flag(&self, flag: Flag) -> bool { (self.f & flag as u8) != 0 }
