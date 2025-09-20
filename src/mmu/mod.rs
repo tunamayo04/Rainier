@@ -177,7 +177,7 @@ impl Mmu {
             }
             EchoRam => {
                 let relative_address = address - EchoRam as usize;
-                self.echo_ram[relative_address]
+                self.work_ram[relative_address]
             }
             SpriteAttributionTable => {
                 let relative_address = address - SpriteAttributionTable as usize;
@@ -286,7 +286,7 @@ impl Mmu {
             }
             EchoRam => {
                 let relative_address = address - EchoRam as usize;
-                &mut self.echo_ram[relative_address]
+                &mut self.work_ram[relative_address]
             }
             SpriteAttributionTable => {
                 let relative_address = address - SpriteAttributionTable as usize;

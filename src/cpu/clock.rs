@@ -20,9 +20,6 @@ impl Clock {
         self.cycles += count;
 
         let tac = self.mmu.borrow().tac();
-        if tac != 0xF8 && tac != 0 {
-            println!("{}", tac);
-        }
         let clock_enable = tac & (1 << 2) != 0;
 
         if clock_enable {

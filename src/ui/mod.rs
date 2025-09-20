@@ -34,7 +34,7 @@ pub struct App {
 
 impl App {
     pub fn new(rainier: Rc<RefCell<Rainier>>) -> Self {
-        let breakpoints: Vec<u16> = vec![0xc262];
+        let breakpoints: Vec<u16> = vec![0xc669];
 
         Self {
             rainier,
@@ -114,6 +114,7 @@ impl App {
             Line::from(format!("HL: {:04X}    C: {}", cpu.registers.hl(), if cpu.registers.carry_flag() { "✓" } else { "X" })),
             Line::from(format!("SP: {:04X}", cpu.registers.sp())),
             Line::from(format!("PC: {:04X}", cpu.registers.pc())),
+            Line::from(format!("0x{:04X}: {:02X}{:02X}", 0xDF7D, rainier.mmu.borrow().read_byte(0xDF7D).unwrap(), rainier.mmu.borrow().read_byte(0xDF7E).unwrap())),
             Line::from(format!("0x{:04X}: {:02X}{:02X}", sp, rainier.mmu.borrow().read_byte(sp as usize).unwrap(), rainier.mmu.borrow().read_byte((sp + 1) as usize).unwrap())),
             Line::from(format!("0x{:04X}: {:02X}{:02X}", sp - 2, rainier.mmu.borrow().read_byte((sp - 2) as usize).unwrap(), rainier.mmu.borrow().read_byte((sp - 1) as usize).unwrap())),
             Line::from(format!("0x{:04X}: {:02X}{:02X}", sp - 4, rainier.mmu.borrow().read_byte((sp - 4) as usize).unwrap(), rainier.mmu.borrow().read_byte((sp - 3) as usize).unwrap())),

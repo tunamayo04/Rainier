@@ -26,7 +26,9 @@ pub struct Cpu {
     log_file: File,
     pub serial_log: String,
     halt: bool,
-    clock: Clock
+    clock: Clock,
+    i: u128,
+    ei: bool,
 }
 
 impl Cpu {
@@ -41,11 +43,14 @@ impl Cpu {
             serial_log: String::new(),
             halt: false,
             clock: Clock::new(mmu.clone()),
+            i: 0,
+            ei: false,
         }
     }
 
     pub fn emulation_loop(&mut self) -> Result<u8> {
-        self.log_to_file()?;
+        self.log_serial();
+        // self.log_to_file()?;
 
         // if !self.halt {
             let cycles = self.run_next_opcode()?;
@@ -64,11 +69,22 @@ impl Cpu {
         let mut opcode = self.read_at_program_counter()?;
         let mut instruction = self.instruction_set.fetch_instruction(opcode);
 
+        if self.ei {
+            self.mmu.borrow_mut().set_ime(1);
+            self.ei = false;
+        }
+
         // HALT
         if opcode == 0x76 {
             self.halt = true;
             // println!("HALTED at {:x}", self.registers.pc() - 1);
             return Ok(1)
+        }
+
+        // EI
+        if opcode == 0xFB {
+            self.ei = true;
+            return Ok(1);
         }
 
         // 16-bit opcodes
@@ -108,6 +124,7 @@ impl Cpu {
             }
         }
 
+        self.i += 1;
 
         Ok(instruction.cycles)
     }
@@ -178,26 +195,27 @@ impl Cpu {
         instructions
     }
 
-    fn log_to_file(&mut self) -> Result<()> {
-        {
-            let mut mmu = self.mmu.borrow_mut();
-            if mmu.sc() == 0x81 {
-                let character = mmu.sb() as char;
-                //self.serial_log.write_all(format!("{}", character).as_bytes())?;
-                mmu.set_sc(0);
+    fn log_serial(&mut self) {
+        let mut mmu = self.mmu.borrow_mut();
+        if mmu.sc() == 0x81 {
+            let character = mmu.sb() as char;
+            //self.serial_log.write_all(format!("{}", character).as_bytes())?;
+            mmu.set_sc(0);
 
-                self.serial_log.push(character);
+            self.serial_log.push(character);
 
-            }
         }
+    }
 
-        self.log_file.write_all(format!("A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X}\n",
+    fn log_to_file(&mut self) -> Result<()> {
+        self.log_file.write_all(format!("A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X} 0xDF7D:{:02X}\n",
                                         self.registers.a(), self.registers.f(), self.registers.b(),
                                         self.registers.c(), self.registers.d(), self.registers.e(),self.registers.h(), self.registers.l(),
                                         self.registers.sp(), self. registers.pc(), self.mmu.borrow().read_byte(self.registers.pc() as usize).unwrap(),
                                         self.mmu.borrow().read_byte(self.registers.pc() as usize + 1).unwrap(),
                                         self.mmu.borrow().read_byte(self.registers.pc() as usize + 2).unwrap(),
-                                        self.mmu.borrow().read_byte(self.registers.pc() as usize + 3).unwrap()).as_bytes())?;
+                                        self.mmu.borrow().read_byte(self.registers.pc() as usize + 3).unwrap(),
+                                        self.mmu.borrow().read_byte(0xDF7D).unwrap()).as_bytes())?;
 
         Ok(())
     }
