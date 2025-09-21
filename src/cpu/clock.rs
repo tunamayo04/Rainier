@@ -25,34 +25,28 @@ impl Clock {
         if clock_enable {
             let clock_select = tac & 0b11;
 
-            match clock_select {
-                0 => {
-                    if self.cycles >= 256 {
-                        self.cycles -= 256;
-                        let tima = self.mmu.borrow().tima();
+            let cycle_increment = match clock_select {
+                0 => 256,
+                1 => 4,
+                2 => 16,
+                3 => 64,
+                _ => 256
+            };
 
-                        if tima == 0xFF {
-                            let tma = self.mmu.borrow().tma();
-                            self.mmu.borrow_mut().set_tima(tma);
+            if self.cycles >= cycle_increment {
+                self.cycles -= cycle_increment;
+                let tima = self.mmu.borrow().tima();
 
-                            let iflag = self.mmu.borrow().iflag();
-                            self.mmu.borrow_mut().set_iflag(iflag | Interrupt::Timer as u8);
-                        } else {
-                            self.mmu.borrow_mut().set_tima(tima + 1);
-                        }
-                    }
-                },
-                1 => {
+                if tima == 0xFF {
+                    let tma = self.mmu.borrow().tma();
+                    self.mmu.borrow_mut().set_tima(tma);
 
-                },
-                2 => {
-
-                },
-                3 => {
-
+                    let iflag = self.mmu.borrow().iflag();
+                    self.mmu.borrow_mut().set_iflag(iflag | (1 << Interrupt::Timer as u8));
+                } else {
+                    self.mmu.borrow_mut().set_tima(tima + 1);
                 }
-                _ => {}
             }
-        }
+        };
     }
 }

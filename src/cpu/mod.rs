@@ -48,23 +48,28 @@ impl Cpu {
         }
     }
 
-    pub fn emulation_loop(&mut self) -> Result<u8> {
+    pub fn emulation_loop(&mut self) -> Result<()> {
         self.log_serial();
-        self.log_to_file()?;
+        // self.log_to_file()?;
 
-
+        if self.i == 4728293 {
+            println!("de");
+        }
 
         let interrupt_requested = self.interrupts.handle_interrupts(&mut self.registers);
         if interrupt_requested {
             self.halt = false;
         }
 
-        // if !self.halt {
-        let cycles = self.run_next_opcode()?;
-        self.clock.update_clock_cycles(cycles);
-        // }
+        if !self.halt {
+            let cycles = self.run_next_opcode()?;
+            self.clock.update_clock_cycles(cycles);
+        }
+        else {
+            self.clock.update_clock_cycles(1);
+        }
 
-        Ok(1)
+        Ok(())
     }
 
     pub fn run_next_opcode(&mut self) -> Result<u8> {
@@ -75,8 +80,6 @@ impl Cpu {
             self.registers.set_ime(true);
             self.ei = false;
         }
-
-
 
         // 16-bit opcodes
         let is_16bit_opcode = if opcode == 0xCB {
@@ -118,15 +121,18 @@ impl Cpu {
             }
         };
 
-        // HALT
-        if opcode == 0x76 {
-            self.halt = true;
-            // println!("HALTED at {:x}", self.registers.pc() - 1);
-        }
+        if !is_16bit_opcode {
+            // HALT
+            if opcode == 0x76 {
+                self.halt = true;
+                // self.registers.increment_pc();
+                // println!("HALTED at {:x}", self.registers.pc() - 1);
+            }
 
-        // EI
-        if opcode == 0xFB {
-            self.ei = true;
+            // EI
+            if opcode == 0xFB {
+                self.ei = true;
+            }
         }
 
         self.i += 1;

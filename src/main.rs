@@ -121,7 +121,7 @@ fn main() -> Result<()> {
 
     if emulation_mode == EmulationMode::Normal {
         loop {
-            let cycles = rainier.borrow_mut().cpu.borrow_mut().emulation_loop()?;
+            rainier.borrow_mut().cpu.borrow_mut().emulation_loop()?;
             //rainier.borrow_mut().ppu.emulation_loop(cycles)?;
         }
     }

@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use color_eyre::owo_colors::OwoColorize;
 use crate::bit_utils::split_2bytes;
 use crate::cpu::registers::Registers;
 use crate::mmu::Mmu;
