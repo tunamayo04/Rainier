@@ -18,8 +18,17 @@ struct OAMEntry {
 enum PPUMode {
     HBlank,
     VBlank,
-    OAMScan(u8),
-    Draw,
+    OAMScan(u8), // The u8 corresponds to the current sprite id that is being retrieved (0-9)
+    Draw(DrawStep),
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+enum DrawStep {
+    Fetch {
+        x_pos: u8,
+        window_line_counter: u8,
+        is_window: bool,
+    }
 }
 
 pub struct Ppu {
@@ -29,7 +38,7 @@ pub struct Ppu {
     sprite_buffer: [Option<OAMEntry>; 10],
 
     current_mode: PPUMode,
-    current_cycles_count: u32,
+    current_t_cycles_count: u32,
 }
 
 impl Ppu {
@@ -39,26 +48,36 @@ impl Ppu {
             cpu,
             sprite_buffer: [None; 10],
             current_mode: PPUMode::OAMScan(0),
-            current_cycles_count: 0,
+            current_t_cycles_count: 0,
         }
     }
 
-    pub fn emulation_loop(&mut self, cycles: u8) -> Result<()> {
+    pub fn emulation_loop(&mut self, t_cycles: u8) -> Result<()> {
         match self.current_mode {
             PPUMode::OAMScan(sprite_id) => {
                 self.oam_scan(sprite_id)?;
 
-                self.current_cycles_count += 2;
-
-                if self.current_cycles_count >= 80 {
-                    self.current_mode = PPUMode::Draw;
+                // The OAMScan mode takes 80 TCycles
+                self.current_t_cycles_count += 2;
+                if self.current_t_cycles_count >= 80 {
+                    self.current_mode = PPUMode::Draw{ 0: DrawStep::Fetch { x_pos: 0, window_line_counter: 0, is_window: false } };
                 }
                 else {
                     self.current_mode = PPUMode::OAMScan(sprite_id + 1);
                 }
 
                 Ok(())
-            }
+            },
+            PPUMode::Draw(step) => {
+                match step {
+                    DrawStep::Fetch { x_pos, window_line_counter, is_window } => {
+                        let tile_number = self.fetch_tile_number(x_pos, window_line_counter, is_window);
+
+                    }
+                }
+
+                Ok(())
+            },
             _ => { todo!() }
         }
     }
@@ -99,5 +118,31 @@ impl Ppu {
         }
 
         true
+    }
+
+    fn fetch_tile_number(&self, x_pos: u8, window_line_counter: u8, is_window: bool) -> usize {
+        let mmu = self.mmu.borrow();
+
+        let background_tilemap_base = if self.check_register(Register::BGTileMapSelect) { 0x9C00 } else { 0x9800 };
+        let mut offset: usize = x_pos as usize;
+
+        // if not window
+        if !is_window {
+            offset += mmu.scx() as usize / 8;
+        }
+
+        offset &= 0x1f;
+
+        // If background
+        if !is_window {
+            offset += 32 * (((mmu.ly() + mmu.scy()) & 0xFF) / 8) as usize;
+        }
+        else {
+            offset += 32 * (window_line_counter / 8) as usize;
+        }
+
+        offset &= 0x3FF;
+
+        offset
     }
 }

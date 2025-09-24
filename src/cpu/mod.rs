@@ -48,28 +48,28 @@ impl Cpu {
         }
     }
 
-    pub fn emulation_loop(&mut self) -> Result<()> {
+    pub fn emulation_loop(&mut self) -> Result<u8> {
         self.log_serial();
         // self.log_to_file()?;
-
-        if self.i == 4728293 {
-            println!("de");
-        }
 
         let interrupt_requested = self.interrupts.handle_interrupts(&mut self.registers);
         if interrupt_requested {
             self.halt = false;
         }
 
-        if !self.halt {
+        let cycles = if !self.halt {
             let cycles = self.run_next_opcode()?;
             self.clock.update_clock_cycles(cycles);
+
+            cycles
         }
         else {
             self.clock.update_clock_cycles(1);
-        }
 
-        Ok(())
+            1
+        };
+
+        Ok(cycles)
     }
 
     pub fn run_next_opcode(&mut self) -> Result<u8> {

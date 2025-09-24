@@ -14,10 +14,19 @@ use std::path::Path;
 use std::rc::Rc;
 use ratatui::crossterm::event::EnableMouseCapture;
 use ratatui::crossterm::execute;
+use winit::dpi::LogicalSize;
+use winit::event::{Event, WindowEvent};
+use winit::event_loop::{ControlFlow, EventLoop};
+use winit::keyboard::KeyCode;
 use cpu::*;
 use mmu::*;
 use crate::ppu::Ppu;
 use crate::ui::{Action, App};
+use crate::ui::lcd::LCD;
+
+const WIDTH: u32 = 320;
+const HEIGHT: u32 = 240;
+const BOX_SIZE: i16 = 64;
 
 #[derive(PartialOrd, PartialEq, Copy, Clone)]
 enum EmulationMode {
@@ -107,58 +116,70 @@ impl Rainier {
     }
 }
 
-fn main() -> Result<()> {
-    let rainier = Rc::new(RefCell::new(Rainier::new()?));
-    rainier.borrow_mut().boot(Path::new("roms/cpu_instrs/individual/08-misc instrs.gb"))?;
+// fn main() -> Result<()> {
 
-    let mut terminal = ratatui::init();
-    let mut debugger = App::new(rainier.clone());
 
-    let emulation_mode = match env::var("mode").unwrap_or(String::from("debug")).as_str() {
-        "normal" => EmulationMode::Normal,
-        _ => EmulationMode::Debug(1),
-    };
 
-    if emulation_mode == EmulationMode::Normal {
-        loop {
-            rainier.borrow_mut().cpu.borrow_mut().emulation_loop()?;
-            //rainier.borrow_mut().ppu.emulation_loop(cycles)?;
-        }
-    }
-    else {
-        execute!(stdout(), EnableMouseCapture)?;
+    // let rainier = Rc::new(RefCell::new(Rainier::new()?));
+    // rainier.borrow_mut().boot(Path::new("roms/cpu_instrs/individual/08-misc instrs.gb"))?;
+    //
+    // let mut terminal = ratatui::init();
+    // let mut debugger = App::new(rainier.clone());
+    //
+    // let emulation_mode = match env::var("mode").unwrap_or(String::from("debug")).as_str() {
+    //     "normal" => EmulationMode::Normal,
+    //     _ => EmulationMode::Debug(1),
+    // };
+    //
+    // if emulation_mode == EmulationMode::Normal {
+    //     loop {
+    //         let m_cycles = rainier.borrow_mut().cpu.borrow_mut().emulation_loop()?;
+    //         rainier.borrow_mut().ppu.emulation_loop(m_cycles * 4)?;
+    //     }
+    // }
+    // else {
+    //     execute!(stdout(), EnableMouseCapture)?;
+    //
+    //     while !debugger.exit {
+    //         debugger.run(&mut terminal)?;
+    //
+    //         let mut rainier = rainier.borrow_mut();
+    //         let mut cpu = rainier.cpu.borrow_mut();
+    //
+    //         if let Some(requested_action) = &debugger.requested_action {
+    //             match requested_action {
+    //                 Action::Trace | Action::StepOver => {
+    //                     cpu.emulation_loop()?;
+    //                     debugger.requested_action = None;
+    //                     debugger.last_hit_breakpoint = None;
+    //                 }
+    //                 Action::Run => {
+    //                     while !debugger.breakpoints.contains(&cpu.registers.pc()) || debugger.last_hit_breakpoint.map_or(false, |breakpoint| cpu.registers.pc() == breakpoint) {
+    //                         cpu.emulation_loop()?;
+    //                         debugger.last_hit_breakpoint = None;
+    //                     }
+    //
+    //                     debugger.requested_action = None;
+    //                     debugger.last_hit_breakpoint = Some(cpu.registers.pc());
+    //                 }
+    //             }
+    //         }
+    //     }
+    //
+    //     ratatui::restore();
+    // }
 
-        while !debugger.exit {
-            debugger.run(&mut terminal)?;
+    // Ok(())
+// }
 
-            let mut rainier = rainier.borrow_mut();
-            let mut cpu = rainier.cpu.borrow_mut();
+fn main() {
+    let event_loop = EventLoop::new().unwrap();
+    event_loop.set_control_flow(ControlFlow::Poll);
 
-            if let Some(requested_action) = &debugger.requested_action {
-                match requested_action {
-                    Action::Trace | Action::StepOver => {
-                        cpu.emulation_loop()?;
-                        debugger.requested_action = None;
-                        debugger.last_hit_breakpoint = None;
-                    }
-                    Action::Run => {
-                        while !debugger.breakpoints.contains(&cpu.registers.pc()) || debugger.last_hit_breakpoint.map_or(false, |breakpoint| cpu.registers.pc() == breakpoint) {
-                            cpu.emulation_loop()?;
-                            debugger.last_hit_breakpoint = None;
-                        }
-
-                        debugger.requested_action = None;
-                        debugger.last_hit_breakpoint = Some(cpu.registers.pc());
-                    }
-                }
-            }
-        }
-
-        ratatui::restore();
-    }
-
-    Ok(())
+    let mut app = LCD::default();
+    event_loop.run_app(&mut app).unwrap();
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -169,7 +190,7 @@ mod tests {
         rainier.borrow_mut().boot(Path::new(rom)).unwrap();
 
         loop {
-            let cycles = rainier.borrow_mut().cpu.borrow_mut().emulation_loop().unwrap();
+            let m_cycles = rainier.borrow_mut().cpu.borrow_mut().emulation_loop().unwrap();
             //rainier.borrow_mut().ppu.emulation_loop(cycles)?;
 
             let serial_log = rainier.borrow().cpu.borrow().serial_log.clone();

@@ -1,3 +1,5 @@
+pub mod lcd;
+
 use std::{cell::RefCell, io, rc::Rc};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, MouseEvent, MouseEventKind};
 use ratatui::{
